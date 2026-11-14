@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>GestorNegocio Pro</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#4f46e5">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<style>
+body { font-family: 'Inter', sans-serif; background-color: #f8fafc; color: #1e293b; margin: 0; padding-bottom: 70px; }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+.tab-btn.active { color: #4f46e5; border-bottom: 2px solid #4f46e5; font-weight: 600; }
+.badge-pro { background: linear-gradient(135deg, #f59e0b, #d97706); color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.65rem; font-weight: bold; }
+.badge-free { background: #e2e8f0; color: #475569; padding: 2px 8px; border-radius: 12px; font-size: 0.65rem; font-weight: bold; }
+.item-row { background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; margin-bottom: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.02); }
+.btn-del { background: #fee2e2; color: #dc2626; border: none; padding: 4px 8px; border-radius: 6px; font-weight: bold; font-size: 0.75rem; cursor: pointer; }
+.tag { font-size: 0.65rem; padding: 1px 6px; border-radius: 4px; font-weight: 500; }
+.tag-paid { background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; }
+.tag-debt { background: #fffbeb; color: #b45309; border: 1px solid #fde68a; }
+</style>
+</head>
+<body>
+<header class="bg-indigo-600 text-white p-4 shadow-md sticky top-0 z-10">
+<div class="flex justify-between items-center">
+<div>
+<h1 id="lbl-negocio" class="text-lg font-bold tracking-tight">Mi Negocio</h1>
+<p id="txt-subtitulo" class="text-xs text-indigo-200">Control de Inventario, Ventas y Fiados</p>
+</div>
+<div onclick="abrirModalPro()" class="cursor-pointer">
+<span id="badge-pro" class="badge-free">GRATIS</span>
+</div>
+</div>
+</header>
+<nav class="bg-white border-t border-slate-200 fixed bottom-0 left-0 right-0 z-20 flex justify-around py-2 shadow-lg">
+<button onclick="cambiarTab('tab-resumen', this)" class="tab-btn active flex flex-col items-center text-xs text-slate-500 py-1 px-2">
+<span class="text-base">📊</span><span id="nav-resumen">Resumen</span>
+</button>
+<button onclick="cambiarTab('tab-inventario', this)" class="tab-btn flex flex-col items-center text-xs text-slate-500 py-1 px-2">
+<span class="text-base">📦</span><span id="nav-inventario">Inventario</span>
+</button>
+<button onclick="cambiarTab('tab-ventas', this)" class="tab-btn flex flex-col items-center text-xs text-slate-500 py-1 px-2">
+<span class="text-base">🛒</span><span id="nav-ventas">Ventas</span>
+</button>
+<button onclick="cambiarTab('tab-ajustes', this)" class="tab-btn flex flex-col items-center text-xs text-slate-500 py-1 px-2">
+<span class="text-base">⚙️</span><span id="nav-ajustes">Ajustes</span>
+</button>
+</nav>
+<main class="p-3 max-w-md mx-auto mb-16">
+<section id="tab-resumen" class="tab-content active">
+<div class="mb-3 bg-white p-2.5 rounded-lg border border-slate-200 shadow-sm flex items-center justify-between">
+<label id="txt-filtrar-prod" class="text-xs font-semibold text-slate-600">Filtrar por Producto:</label>
+<select id="filtro-producto" onchange="actualizarResumen()" class="p-1.5 text-xs bg-slate-50 border border-slate-300 rounded-md font-medium text-slate-700 outline-none">
+<option value="TODOS">Todos los Productos (General)</option>
+</select>
+</div>
+<div class="grid grid-cols-2 gap-2.5 mb-3">
+<div class="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
+<span id="txt-kpi-gan" class="text-[10px] font-bold text-slate-400 block tracking-wider">GANANCIA NETA (COBRADA)</span>
+<div id="kpi-ganancia" class="text-base font-bold text-emerald-600 mt-0.5">$0.00</div>
+</div>
+<div class="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
+<span id="txt-kpi-inv" class="text-[10px] font-bold text-slate-400 block tracking-wider">INVERSIÓN TOTAL</span>
+<div id="kpi-inversion" class="text-base font-bold text-slate-800 mt-0.5">$0.00</div>
+</div>
+<div class="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
+<span id="txt-kpi-ven" class="text-[10px] font-bold text-slate-400 block tracking-wider">VENTAS TOTALES</span>
+<div id="kpi-ventas" class="text-base font-bold text-sky-600 mt-0.5">$0.00</div>
+</div>
+<div class="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
+<span id="txt-kpi-deu" class="text-[10px] font-bold text-slate-400 block tracking-wider">POR COBRAR (FIADOS)</span>
+<div id="kpi-deuda" class="text-base font-bold text-amber-600 mt-0.5">$0.00</div>
+</div>
+</div>
+<div class="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-lg p-3 shadow-sm mb-3">
+<div class="flex justify-between items-center mb-1">
+<h3 class="text-xs font-bold text-amber-900">👑 Estadísticas Inteligentes PRO</h3>
+<span id="tag-pro-stats" class="badge-free">BLOQUEADO</span>
+</div>
+<div id="contenido-pro-stats" class="text-xs text-amber-800">
+<p class="mb-2">Descubre tu producto más estrella y tu margen real.</p>
+<button onclick="abrirModalPro()" class="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-1.5 px-3 rounded-md text-xs shadow">🔓 Desbloquear Análisis PRO</button>
+</div>
+</div>
+<button onclick="abrirPlanilla()" class="w-full bg-sky-600 hover:bg-sky-700 text-white font-bold py-2.5 px-4 rounded-lg shadow-md text-sm flex items-center justify-center gap-2">
+<span>📄</span> <span id="btn-pdf-planilla">Abrir Planilla y Exportar PDF</span>
+</button>
+</section>
+<section id="tab-inventario" class="tab-content">
+<div class="bg-white p-3 rounded-lg border border-slate-200 shadow-sm mb-3">
+<h2 id="txt-reg-merc" class="text-xs font-bold text-indigo-600 mb-2 uppercase tracking-wider">Registrar Mercancía</h2>
+<form onsubmit="agregarProducto(event)">
+<div class="mb-2">
+<label id="lbl-p-nombre" class="text-[11px] font-semibold text-slate-600">Nombre del Producto</label>
+<input type="text" id="p-nombre" required class="w-full p-2 text-xs bg-slate-50 border border-slate-300 rounded-md outline-none focus:border-indigo-500" placeholder="Ej. Pantalón / Blusa">
+</div>
+<div class="mb-2">
+<label id="lbl-p-inv" class="text-[11px] font-semibold text-slate-600">Inversión / Socio o Lote (Opcional)</label>
+<input type="text" id="p-inversion" class="w-full p-2 text-xs bg-slate-50 border border-slate-300 rounded-md outline-none focus:border-indigo-500" placeholder="Ej. Capital Propio">
+</div>
+<div class="grid grid-cols-2 gap-2 mb-2">
+<div>
+<label id="lbl-p-costo" class="text-[11px] font-semibold text-slate-600">Costo Unidad ()</label>
+<input type="number" id="p-costo" step="0.01" required oninput="calcularGananciaPrevia()" class="w-full p-2 text-xs bg-slate-50 border border-slate-300 rounded-md outline-none focus:border-indigo-500" placeholder="0.00">
+</div>
+<div>
+<label id="lbl-p-tipoprecio" class="text-[11px] font-semibold text-slate-600">Tipo de Precio</label>
+<select id="p-tipoprecio" class="w-full p-2 text-xs bg-slate-50 border border-slate-300 rounded-md outline-none focus:border-indigo-500">
+<option value="DETAL" id="opt-inv-detal">Al Detal</option>
+<option value="MAYOR" id="opt-inv-mayor">Al Mayor</option>
+</select>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-2 mb-2">
+<div>
+<label id="lbl-p-precio" class="text-[11px] font-semibold text-slate-600">Precio ()</label>
+<input type="number" id="p-precio" step="0.01" required oninput="calcularGananciaPrevia()" class="w-full p-2 text-xs bg-slate-50 border border-slate-300 rounded-md outline-none focus:border-indigo-500" placeholder="0.00">
+</div>
+<div>
+<label id="lbl-p-stock" class="text-[11px] font-semibold text-slate-600">Cantidad</label>
+<input type="number" id="p-stock" required oninput="calcularGananciaPrevia()" class="w-full p-2 text-xs bg-slate-50 border border-slate-300 rounded-md outline-none focus:border-indigo-500" placeholder="Ej. 10">
+</div>
+</div>
+<div class="mb-2.5">
+<label id="lbl-gastos-extra" class="text-[11px] font-semibold text-slate-600 block mb-1">Gastos Adicionales (Transporte, Bolsas, etc.) [Opcional]</label>
+<div id="lista-gastos-inv" class="space-y-1 mb-1"></div>
+<button type="button" onclick="agregarGastoExtraInv()" id="btn-add-gasto" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-1 px-2 rounded text-[11px] border border-dashed border-slate-300">+ Agregar Gasto Extra</button>
+</div>
+<div id="preview-ganancia" class="text-center p-2 rounded-md text-xs font-semibold mb-2.5 border border-dashed border-emerald-300 bg-emerald-50 text-emerald-800">
+Ganancia estimada: $0.00
+</div>
+<button type="submit" id="btn-guardar-prod" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg shadow text-xs">+ Guardar en Inventario</button>
+</form>
+</div>
+<h3 id="txt-inv-actual" class="text-xs font-bold text-slate-700 mb-2 uppercase tracking-wider">Inventario Actual</h3>
+<div id="lista-inventario"></div>
+</section>
+<section id="tab-ventas" class="tab-content">
+<div class="bg-white p-3 rounded-lg border border-slate-200 shadow-sm mb-3">
+<h2 id="txt-reg-venta" class="text-xs font-bold text-emerald-600 mb-2 uppercase tracking-wider">Registrar Venta</h2>
+<form onsubmit="registrarVenta(event)">
+<div class="mb-2">
+<label id="lbl-v-prod" class="text-[11px] font-semibold text-slate-600">Selecciona un producto</label>
+<select id="v-producto" required onchange="autoPrecio()" class="w-full p-2 text-xs bg-slate-50 border border-slate-300 rounded-md outline-none focus:border-emerald-500">
+<option value="">Selecciona un producto</option>
+</select>
+</div>
+<div class="grid grid-cols-2 gap-2 mb-2">
+<div>
+<label id="lbl-v-cant" class="text-[11px] font-semibold text-slate-600">Cantidad</label>
+<input type="number" id="v-cantidad" required value="1" min="1" class="w-full p-2 text-xs bg-slate-50 border border-slate-300 rounded-md outline-none">
+</div>
+<div>
+<label id="lbl-v-precio" class="text-[11px] font-semibold text-slate-600">Precio Cobrado ($)</label>
+<input type="number" id="v-precio" step="0.01" required class="w-full p-2 text-xs bg-slate-50 border border-slate-300 rounded-md outline-none">
+</div>
+</div>
+<div class="mb-2">
+<label id="lbl-v-estado" class="text-[11px] font-semibold text-slate-600">Estado del Pago</label>
+<select id="v-estado" onchange="toggleAbono()" class="w-full p-2 text-xs bg-slate-50 border border-slate-300 rounded-md outline-none">
+<option value="PAGADO" id="opt-pagado">Pagado Completo</option>
+<option value="FIADO" id="opt-fiado">Fiado / Por Cobrar</option>
+</select>
+</div>
+<div id="box-deuda" style="display:none;" class="p-2 bg-amber-50 border border-amber-200 rounded-md mb-2">
+<div class="mb-1.5">
+<label id="lbl-v-cliente" class="text-[10px] font-semibold text-amber-900">Nombre del Cliente</label>
+<input type="text" id="v-cliente" class="w-full p-1.5 text-xs bg-white border border-amber-300 rounded outline-none" placeholder="Nombre completo">
+</div>
+<div>
+<label id="lbl-v-abono" class="text-[10px] font-semibold text-amber-900">Abono inicial ($)</label>
+<input type="number" id="v-abono" step="0.01" value="0" class="w-full p-1.5 text-xs bg-white border border-amber-300 rounded outline-none" placeholder="0.00">
+</div>
+</div>
+<button type="submit" id="btn-reg-venta" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-lg shadow text-xs">✓ Registrar Venta</button>
+</form>
+</div>
+<h3 id="txt-hist-ventas" class="text-xs font-bold text-slate-700 mb-2 uppercase tracking-wider">Historial de Ventas</h3>
+<div id="lista-ventas"></div>
+</section>
+<section id="tab-ajustes" class="tab-content">
+<div class="bg-white p-3 rounded-lg border border-slate-200 shadow-sm mb-3">
+<h2 id="txt-ajustes" class="text-xs font-bold text-slate-700 mb-2 uppercase tracking-wider">Ajustes del Negocio</h2>
+<div class="mb-3">
+<label id="lbl-idioma" class="text-[11px] font-semibold text-slate-600 block mb-1">🌐 Idioma de la Aplicación</label>
+<select id="select-idioma" onchange="cambiarIdiomaApp()" class="w-full p-2 text-xs bg-slate-50 border border-slate-300 rounded-md outline-none">
+<option value="es">Español</option>
+<option value="en">English</option>
+<option value="pt">Português</option>
+</select>
+</div>
+<div class="mb-3">
+<label id="lbl-cfg-nombre" class="text-[11px] font-semibold text-slate-600 block mb-1">Nombre del Negocio</label>
+<input type="text" id="cfg-nombre" class="w-full p-2 text-xs bg-slate-50 border border-slate-300 rounded-md outline-none mb-2" placeholder="Mi Negocio">
+<button onclick="guardarNombre()" id="btn-cfg-nombre" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-semibold py-1.5 px-3 rounded text-xs">Guardar Nombre</button>
+</div>
+<hr class="border-slate-100 my-3">
+<button onclick="borrarTodo()" id="btn-borrar-todo" class="w-full bg-red-50 hover:bg-red-100 text-red-600 font-bold py-2 px-3 rounded text-xs border border-red-200">Borrar Todos los Datos</button>
+</div>
+</section>
+</main>
+<div id="modal-detalle" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-3" style="display:none;">
+<div class="bg-white w-full max-w-sm rounded-lg p-4 shadow-xl">
+<h3 id="modal-titulo" class="text-sm font-bold text-slate-800 mb-2 border-b pb-1">Detalle de Venta</h3>
+<div id="modal-body" class="text-xs text-slate-600 space-y-1.5 mb-3"></div>
+<div id="modal-acciones" class="flex flex-col gap-2"></div>
+<button onclick="cerrarModal()" id="btn-cerrar-modal" class="w-full mt-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold py-1.5 rounded text-xs">Cerrar</button>
+</div>
+</div>
+<div id="modal-planilla" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-2" style="display:none;">
+<div class="bg-white w-full max-w-lg rounded-xl p-4 shadow-2xl flex flex-col max-h-[90vh]">
+<div class="flex justify-between items-center mb-2 border-b pb-2">
+<h3 id="lbl-planilla-titulo" class="text-xs font-bold text-slate-800">Control de Inventario y Ventas</h3>
+<button onclick="cerrarPlanilla()" class="text-slate-400 hover:text-slate-600 font-bold text-lg px-2">✕</button>
+</div>
+<div id="contenido-planilla" class="overflow-y-auto flex-1 text-xs mb-3 pr-1"></div>
+<div class="flex gap-2">
+<button onclick="abrirVisorPDF()" id="btn-pdf-planilla" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-4 rounded-lg shadow text-xs">📥 Descargar Reporte PDF</button>
+<button onclick="cerrarPlanilla()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold py-2 px-3 rounded-lg text-xs">Cerrar</button>
+</div>
+</div>
+</div>
+<div id="modal-pro" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-3" style="display:none;">
+<div class="bg-white w-full max-w-sm rounded-xl p-4 shadow-2xl text-center">
+<span class="text-3xl">👑</span>
+<h3 class="text-base font-bold text-slate-900 mt-1">GestorNegocio PRO</h3>
+<p id="lbl-estado-pro" class="text-xs text-amber-600 font-semibold mb-2">Plan Gratis</p>
+<p id="txt-desc-pro" class="text-xs text-slate-600 mb-3">Desbloquea estadísticas inteligentes avanzadas y soporte ilimitado.</p>
+<div id="pro-timer-box" style="display:none;" class="mb-3 p-2 bg-indigo-50 border border-indigo-200 rounded-lg">
+<p class="text-xs font-bold text-indigo-700">Verificando anuncio... <span id="pro-countdown">5</span>s</p>
+</div>
+<div class="space-y-2">
+<button onclick="iniciarRecompensaPro()" id="btn-ver-anuncio" class="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-2 rounded-lg text-xs shadow">📺 Ver Anuncio (6 Horas PRO Gratis)</button>
+<button onclick="activarProPermanente()" class="w-full bg-slate-900 hover:bg-black text-white font-bold py-2 rounded-lg text-xs shadow">💎 Ingresar Código PRO</button>
+<button onclick="cerrarModalPro()" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-1.5 rounded-lg text-xs">Cerrar</button>
+</div>
+</div>
+</div>
+<div id="toast" style="display:none;" class="fixed bottom-16 left-1/2 transform -translate-x-1/2 bg-slate-900 text-white text-xs px-3 py-2 rounded-full shadow-lg z-50 text-center font-medium"></div>
+<script src="./script.js"></script>
+</body>
+</html>
