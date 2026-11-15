@@ -1,247 +1,958 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>GestorNegocio Pro</title>
-<script src="https://cdn.tailwindcss.com"></script>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="manifest" href="./manifest.json">
-<meta name="theme-color" content="#4f46e5">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<script>
+    // 1. Interceptar localStorage para asegurar respuestas afirmativas
+    const originalGetItem = Storage.prototype.getItem;
+    Storage.prototype.getItem = function(key) {
+        const val = originalGetItem.call(this, key);
+        const k = key.toLowerCase();
+        if (k.includes('pro') || k.includes('premium') || k.includes('ad') || k.includes('video') || k.includes('suscr') || k.includes('modo') || k.includes('visto')) {
+            return 'true';
+        }
+        return val;
+    };
+
+    // 2. Forzar variables globales de estado Pro como verdaderas
+    ['isPro', 'modoPro', 'pro', 'premium', 'isPremium', 'modoProActivo', 'esPro', 'anuncioVisto', 'videoVisto'].forEach(varName => {
+        Object.defineProperty(window, varName, {
+            get: function() { return true; },
+            set: function(v) {},
+            configurable: true
+        });
+    });
+
+    // 3. Interceptar las alertas del navegador para bloquear avisos innecesarios
+    const originalAlert = window.alert;
+    window.alert = function(msg) {
+        if (typeof msg === 'string' && (msg.toLowerCase().includes('modo pro') || msg.toLowerCase().includes('anuncio') || msg.toLowerCase().includes('exclusiva'))) {
+            console.log("Aviso bloqueado automáticamente.");
+            return;
+        }
+        return originalAlert.apply(this, arguments);
+    };
+
+    // 4. Funciones de validación forzadas a retornar true
+    window.verificarPro = () => true;
+    window.esUsuarioPro = () => true;
+    window.chequearPro = () => true;
+    window.validarPro = () => true;
+    window.checkPro = () => true;
+    window.isUserPro = () => true;
+    window.mostrarAnuncio = (cb) => { if(cb) cb(); };
+    window.verVideoPremio = (cb) => { if(cb) cb(); };
+    window.cargarAnuncio = (cb) => { if(cb) cb(); };
+</script>
 <style>
-body { font-family: 'Inter', sans-serif; background-color: #f8fafc; color: #1e293b; margin: 0; padding-bottom: 70px; }
-.tab-content { display: none; }
-.tab-content.active { display: block; }
-.tab-btn.active { color: #4f46e5; border-bottom: 2px solid #4f46e5; font-weight: 600; }
-.badge-pro { background: linear-gradient(135deg, #f59e0b, #d97706); color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.65rem; font-weight: bold; }
-.badge-free { background: #e2e8f0; color: #475569; padding: 2px 8px; border-radius: 12px; font-size: 0.65rem; font-weight: bold; }
-.item-row { background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; margin-bottom: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.02); }
-.btn-del { background: #fee2e2; color: #dc2626; border: none; padding: 4px 8px; border-radius: 6px; font-weight: bold; font-size: 0.75rem; cursor: pointer; }
-.tag { font-size: 0.65rem; padding: 1px 6px; border-radius: 4px; font-weight: 500; }
-.tag-paid { background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; }
-.tag-debt { background: #fffbeb; color: #b45309; border: 1px solid #fde68a; }
+    /* Ocultar cualquier botón, banner o rastro de anuncios */
+    .ver-video-btn, .ad-banner, .rewarded-ad, [id*="video"], [class*="anuncio"] {
+        display: none !important;
+    }
 </style>
+
+<!-- Firebase Firestore para Sincronización en Tiempo Real -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/13.3.0/firebase-app.js";
+  import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/13.3.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyAiXgqBk_tHsz5Ukar-YuvhZPQcg57Ss8g",
+    authDomain: "gestorpro-sync-8b047.firebaseapp.com",
+    projectId: "gestorpro-sync-8b047",
+    storageBucket: "gestorpro-sync-8b047.firebasestorage.app",
+    messagingSenderId: "644496640474",
+    appId: "1:644496640474:web:d158f3647eb748627a58e3"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  const docRef = doc(db, "negocios", "principal");
+
+  window.sincronizarNube = async function(datos) {
+    try {
+      await setDoc(docRef, { data: JSON.stringify(datos), actualizado: Date.now() });
+    } catch(e) {
+      console.error("Error al sincronizar con la nube:", e);
+    }
+  };
+
+  onSnapshot(docRef, (snap) => {
+    if (snap.exists() && snap.data().data) {
+      const nubeRemota = snap.data().data;
+      const actualLocal = localStorage.getItem('gestorpro_datos');
+      if (nubeRemota !== actualLocal) {
+        localStorage.setItem('gestorpro_datos', nubeRemota);
+        if (typeof renderizarApp === 'function') renderizarApp();
+        else if (typeof cargarDatos === 'function') cargarDatos();
+      }
+    }
+  });
+</script>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GestorPro - Control de Negocio</title>
+    <!-- Enlace PWA Web Manifest -->
+    <link rel="manifest" href="./manifest.json">
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
-<header class="bg-indigo-600 text-white p-4 shadow-md sticky top-0 z-10">
-<div class="flex justify-between items-center">
-<div>
-<h1 id="lbl-negocio" class="text-lg font-bold tracking-tight">Mi Negocio</h1>
-<p id="txt-subtitulo" class="text-xs text-indigo-200">Control de Inventario, Ventas y Fiados</p>
-</div>
-<div onclick="abrirModalPro()" class="cursor-pointer">
-<span id="badge-pro" class="badge-free">GRATIS</span>
-</div>
-</div>
-</header>
-<nav class="bg-white border-t border-slate-200 fixed bottom-0 left-0 right-0 z-20 flex justify-around py-2 shadow-lg">
-<button onclick="cambiarTab('tab-resumen', this)" class="tab-btn active flex flex-col items-center text-xs text-slate-500 py-1 px-2">
-<span class="text-base">📊</span><span id="nav-resumen">Resumen</span>
-</button>
-<button onclick="cambiarTab('tab-inventario', this)" class="tab-btn flex flex-col items-center text-xs text-slate-500 py-1 px-2">
-<span class="text-base">📦</span><span id="nav-inventario">Inventario</span>
-</button>
-<button onclick="cambiarTab('tab-ventas', this)" class="tab-btn flex flex-col items-center text-xs text-slate-500 py-1 px-2">
-<span class="text-base">🛒</span><span id="nav-ventas">Ventas</span>
-</button>
-<button onclick="cambiarTab('tab-ajustes', this)" class="tab-btn flex flex-col items-center text-xs text-slate-500 py-1 px-2">
-<span class="text-base">⚙️</span><span id="nav-ajustes">Ajustes</span>
-</button>
-</nav>
-<main class="p-3 max-w-md mx-auto mb-16">
-<section id="tab-resumen" class="tab-content active">
-<div class="mb-3 bg-white p-2.5 rounded-lg border border-slate-200 shadow-sm flex items-center justify-between">
-<label id="txt-filtrar-prod" class="text-xs font-semibold text-slate-600">Filtrar por Producto:</label>
-<select id="filtro-producto" onchange="actualizarResumen()" class="p-1.5 text-xs bg-slate-50 border border-slate-300 rounded-md font-medium text-slate-700 outline-none">
-<option value="TODOS">Todos los Productos (General)</option>
-</select>
-</div>
-<div class="grid grid-cols-2 gap-2.5 mb-3">
-<div class="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
-<span id="txt-kpi-gan" class="text-[10px] font-bold text-slate-400 block tracking-wider">GANANCIA NETA (COBRADA)</span>
-<div id="kpi-ganancia" class="text-base font-bold text-emerald-600 mt-0.5">$0.00</div>
-</div>
-<div class="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
-<span id="txt-kpi-inv" class="text-[10px] font-bold text-slate-400 block tracking-wider">INVERSIÓN TOTAL</span>
-<div id="kpi-inversion" class="text-base font-bold text-slate-800 mt-0.5">$0.00</div>
-</div>
-<div class="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
-<span id="txt-kpi-ven" class="text-[10px] font-bold text-slate-400 block tracking-wider">VENTAS TOTALES</span>
-<div id="kpi-ventas" class="text-base font-bold text-sky-600 mt-0.5">$0.00</div>
-</div>
-<div class="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
-<span id="txt-kpi-deu" class="text-[10px] font-bold text-slate-400 block tracking-wider">POR COBRAR (FIADOS)</span>
-<div id="kpi-deuda" class="text-base font-bold text-amber-600 mt-0.5">$0.00</div>
-</div>
-</div>
-<div class="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-lg p-3 shadow-sm mb-3">
-<div class="flex justify-between items-center mb-1">
-<h3 class="text-xs font-bold text-amber-900">👑 Estadísticas Inteligentes PRO</h3>
-<span id="tag-pro-stats" class="badge-free">BLOQUEADO</span>
-</div>
-<div id="contenido-pro-stats" class="text-xs text-amber-800">
-<p class="mb-2">Descubre tu producto más estrella y tu margen real.</p>
-<button onclick="abrirModalPro()" class="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-1.5 px-3 rounded-md text-xs shadow">🔓 Desbloquear Análisis PRO</button>
-</div>
-</div>
-<button onclick="abrirPlanilla()" class="w-full bg-sky-600 hover:bg-sky-700 text-white font-bold py-2.5 px-4 rounded-lg shadow-md text-sm flex items-center justify-center gap-2">
-<span>📄</span> <span id="btn-pdf-planilla">Abrir Planilla y Exportar PDF</span>
-</button>
-</section>
-<section id="tab-inventario" class="tab-content">
-<div class="bg-white p-3 rounded-lg border border-slate-200 shadow-sm mb-3">
-<h2 id="txt-reg-merc" class="text-xs font-bold text-indigo-600 mb-2 uppercase tracking-wider">Registrar Mercancía</h2>
-<form onsubmit="agregarProducto(event)">
-<div class="mb-2">
-<label id="lbl-p-nombre" class="text-[11px] font-semibold text-slate-600">Nombre del Producto</label>
-<input type="text" id="p-nombre" required class="w-full p-2 text-xs bg-slate-50 border border-slate-300 rounded-md outline-none focus:border-indigo-500" placeholder="Ej. Pantalón / Blusa">
-</div>
-<div class="mb-2">
-<label id="lbl-p-inv" class="text-[11px] font-semibold text-slate-600">Inversión / Socio o Lote (Opcional)</label>
-<input type="text" id="p-inversion" class="w-full p-2 text-xs bg-slate-50 border border-slate-300 rounded-md outline-none focus:border-indigo-500" placeholder="Ej. Capital Propio">
-</div>
-<div class="grid grid-cols-2 gap-2 mb-2">
-<div>
-<label id="lbl-p-costo" class="text-[11px] font-semibold text-slate-600">Costo Unidad ()</label>
-<input type="number" id="p-costo" step="0.01" required oninput="calcularGananciaPrevia()" class="w-full p-2 text-xs bg-slate-50 border border-slate-300 rounded-md outline-none focus:border-indigo-500" placeholder="0.00">
-</div>
-<div>
-<label id="lbl-p-tipoprecio" class="text-[11px] font-semibold text-slate-600">Tipo de Precio</label>
-<select id="p-tipoprecio" class="w-full p-2 text-xs bg-slate-50 border border-slate-300 rounded-md outline-none focus:border-indigo-500">
-<option value="DETAL" id="opt-inv-detal">Al Detal</option>
-<option value="MAYOR" id="opt-inv-mayor">Al Mayor</option>
-</select>
-</div>
-</div>
-<div class="grid grid-cols-2 gap-2 mb-2">
-<div>
-<label id="lbl-p-precio" class="text-[11px] font-semibold text-slate-600">Precio ()</label>
-<input type="number" id="p-precio" step="0.01" required oninput="calcularGananciaPrevia()" class="w-full p-2 text-xs bg-slate-50 border border-slate-300 rounded-md outline-none focus:border-indigo-500" placeholder="0.00">
-</div>
-<div>
-<label id="lbl-p-stock" class="text-[11px] font-semibold text-slate-600">Cantidad</label>
-<input type="number" id="p-stock" required oninput="calcularGananciaPrevia()" class="w-full p-2 text-xs bg-slate-50 border border-slate-300 rounded-md outline-none focus:border-indigo-500" placeholder="Ej. 10">
-</div>
-</div>
-<div class="mb-2.5">
-<label id="lbl-gastos-extra" class="text-[11px] font-semibold text-slate-600 block mb-1">Gastos Adicionales (Transporte, Bolsas, etc.) [Opcional]</label>
-<div id="lista-gastos-inv" class="space-y-1 mb-1"></div>
-<button type="button" onclick="agregarGastoExtraInv()" id="btn-add-gasto" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-1 px-2 rounded text-[11px] border border-dashed border-slate-300">+ Agregar Gasto Extra</button>
-</div>
-<div id="preview-ganancia" class="text-center p-2 rounded-md text-xs font-semibold mb-2.5 border border-dashed border-emerald-300 bg-emerald-50 text-emerald-800">
-Ganancia estimada: $0.00
-</div>
-<button type="submit" id="btn-guardar-prod" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg shadow text-xs">+ Guardar en Inventario</button>
-</form>
-</div>
-<h3 id="txt-inv-actual" class="text-xs font-bold text-slate-700 mb-2 uppercase tracking-wider">Inventario Actual</h3>
-<div id="lista-inventario"></div>
-</section>
-<section id="tab-ventas" class="tab-content">
-<div class="bg-white p-3 rounded-lg border border-slate-200 shadow-sm mb-3">
-<h2 id="txt-reg-venta" class="text-xs font-bold text-emerald-600 mb-2 uppercase tracking-wider">Registrar Venta</h2>
-<form onsubmit="registrarVenta(event)">
-<div class="mb-2">
-<label id="lbl-v-prod" class="text-[11px] font-semibold text-slate-600">Selecciona un producto</label>
-<select id="v-producto" required onchange="autoPrecio()" class="w-full p-2 text-xs bg-slate-50 border border-slate-300 rounded-md outline-none focus:border-emerald-500">
-<option value="">Selecciona un producto</option>
-</select>
-</div>
-<div class="grid grid-cols-2 gap-2 mb-2">
-<div>
-<label id="lbl-v-cant" class="text-[11px] font-semibold text-slate-600">Cantidad</label>
-<input type="number" id="v-cantidad" required value="1" min="1" class="w-full p-2 text-xs bg-slate-50 border border-slate-300 rounded-md outline-none">
-</div>
-<div>
-<label id="lbl-v-precio" class="text-[11px] font-semibold text-slate-600">Precio Cobrado ($)</label>
-<input type="number" id="v-precio" step="0.01" required class="w-full p-2 text-xs bg-slate-50 border border-slate-300 rounded-md outline-none">
-</div>
-</div>
-<div class="mb-2">
-<label id="lbl-v-estado" class="text-[11px] font-semibold text-slate-600">Estado del Pago</label>
-<select id="v-estado" onchange="toggleAbono()" class="w-full p-2 text-xs bg-slate-50 border border-slate-300 rounded-md outline-none">
-<option value="PAGADO" id="opt-pagado">Pagado Completo</option>
-<option value="FIADO" id="opt-fiado">Fiado / Por Cobrar</option>
-</select>
-</div>
-<div id="box-deuda" style="display:none;" class="p-2 bg-amber-50 border border-amber-200 rounded-md mb-2">
-<div class="mb-1.5">
-<label id="lbl-v-cliente" class="text-[10px] font-semibold text-amber-900">Nombre del Cliente</label>
-<input type="text" id="v-cliente" class="w-full p-1.5 text-xs bg-white border border-amber-300 rounded outline-none" placeholder="Nombre completo">
-</div>
-<div>
-<label id="lbl-v-abono" class="text-[10px] font-semibold text-amber-900">Abono inicial ($)</label>
-<input type="number" id="v-abono" step="0.01" value="0" class="w-full p-1.5 text-xs bg-white border border-amber-300 rounded outline-none" placeholder="0.00">
-</div>
-</div>
-<button type="submit" id="btn-reg-venta" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-lg shadow text-xs">✓ Registrar Venta</button>
-</form>
-</div>
-<h3 id="txt-hist-ventas" class="text-xs font-bold text-slate-700 mb-2 uppercase tracking-wider">Historial de Ventas</h3>
-<div id="lista-ventas"></div>
-</section>
-<section id="tab-ajustes" class="tab-content">
-<div class="bg-white p-3 rounded-lg border border-slate-200 shadow-sm mb-3">
-<h2 id="txt-ajustes" class="text-xs font-bold text-slate-700 mb-2 uppercase tracking-wider">Ajustes del Negocio</h2>
-<div class="mb-3">
-<label id="lbl-idioma" class="text-[11px] font-semibold text-slate-600 block mb-1">🌐 Idioma de la Aplicación</label>
-<select id="select-idioma" onchange="cambiarIdiomaApp()" class="w-full p-2 text-xs bg-slate-50 border border-slate-300 rounded-md outline-none">
-<option value="es">Español</option>
-<option value="en">English</option>
-<option value="pt">Português</option>
-</select>
-</div>
-<div class="mb-3">
-<label id="lbl-cfg-nombre" class="text-[11px] font-semibold text-slate-600 block mb-1">Nombre del Negocio</label>
-<input type="text" id="cfg-nombre" class="w-full p-2 text-xs bg-slate-50 border border-slate-300 rounded-md outline-none mb-2" placeholder="Mi Negocio">
-<button onclick="guardarNombre()" id="btn-cfg-nombre" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-semibold py-1.5 px-3 rounded text-xs">Guardar Nombre</button>
-</div>
-<hr class="border-slate-100 my-3">
-<button onclick="borrarTodo()" id="btn-borrar-todo" class="w-full bg-red-50 hover:bg-red-100 text-red-600 font-bold py-2 px-3 rounded text-xs border border-red-200">Borrar Todos los Datos</button>
-</div>
-</section>
-</main>
-<div id="modal-detalle" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-3" style="display:none;">
-<div class="bg-white w-full max-w-sm rounded-lg p-4 shadow-xl">
-<h3 id="modal-titulo" class="text-sm font-bold text-slate-800 mb-2 border-b pb-1">Detalle de Venta</h3>
-<div id="modal-body" class="text-xs text-slate-600 space-y-1.5 mb-3"></div>
-<div id="modal-acciones" class="flex flex-col gap-2"></div>
-<button onclick="cerrarModal()" id="btn-cerrar-modal" class="w-full mt-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold py-1.5 rounded text-xs">Cerrar</button>
-</div>
-</div>
-<div id="modal-planilla" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-2" style="display:none;">
-<div class="bg-white w-full max-w-lg rounded-xl p-4 shadow-2xl flex flex-col max-h-[90vh]">
-<div class="flex justify-between items-center mb-2 border-b pb-2">
-<h3 id="lbl-planilla-titulo" class="text-xs font-bold text-slate-800">Control de Inventario y Ventas</h3>
-<button onclick="cerrarPlanilla()" class="text-slate-400 hover:text-slate-600 font-bold text-lg px-2">✕</button>
-</div>
-<div id="contenido-planilla" class="overflow-y-auto flex-1 text-xs mb-3 pr-1"></div>
-<div class="flex gap-2">
-<button onclick="abrirVisorPDF()" id="btn-pdf-planilla" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-4 rounded-lg shadow text-xs">📥 Descargar Reporte PDF</button>
-<button onclick="cerrarPlanilla()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold py-2 px-3 rounded-lg text-xs">Cerrar</button>
-</div>
-</div>
-</div>
-<div id="modal-pro" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-3" style="display:none;">
-<div class="bg-white w-full max-w-sm rounded-xl p-4 shadow-2xl text-center">
-<span class="text-3xl">👑</span>
-<h3 class="text-base font-bold text-slate-900 mt-1">GestorNegocio PRO</h3>
-<p id="lbl-estado-pro" class="text-xs text-amber-600 font-semibold mb-2">Plan Gratis</p>
-<p id="txt-desc-pro" class="text-xs text-slate-600 mb-3">Desbloquea estadísticas inteligentes avanzadas y soporte ilimitado.</p>
-<div id="pro-timer-box" style="display:none;" class="mb-3 p-2 bg-indigo-50 border border-indigo-200 rounded-lg">
-<p class="text-xs font-bold text-indigo-700">Verificando anuncio... <span id="pro-countdown">5</span>s</p>
-</div>
-<div class="space-y-2">
-<button onclick="iniciarRecompensaPro()" id="btn-ver-anuncio" class="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-2 rounded-lg text-xs shadow">📺 Ver Anuncio (6 Horas PRO Gratis)</button>
-<button onclick="activarProPermanente()" class="w-full bg-slate-900 hover:bg-black text-white font-bold py-2 rounded-lg text-xs shadow">💎 Ingresar Código PRO</button>
-<button onclick="cerrarModalPro()" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-1.5 rounded-lg text-xs">Cerrar</button>
-</div>
-</div>
-</div>
-<div id="toast" style="display:none;" class="fixed bottom-16 left-1/2 transform -translate-x-1/2 bg-slate-900 text-white text-xs px-3 py-2 rounded-full shadow-lg z-50 text-center font-medium"></div>
-<script src="./script.js"></script>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
+
+    <!-- Pantalla de Bienvenida / Onboarding -->
+    <div id="modal-onboarding" class="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 space-y-4 shadow-2xl">
+            <div class="text-center space-y-2">
+                <span class="text-3xl">🚀</span>
+                <h2 class="text-lg font-bold text-slate-800">Bienvenido a GestorPro</h2>
+                <p class="text-xs text-slate-500">Gestión total de inventario, ventas, fiados, capital, deudas y múltiples negocios desde tu móvil.</p>
+            </div>
+            <div class="space-y-2 text-xs text-slate-600 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                <p>📊 <b>Resumen Financiero:</b> Inversión, ventas, ganancias y deudas.</p>
+                <p>📦 <b>Inventario & Costos:</b> Precios de compra, venta y gastos extra.</p>
+                <p>🤝 <b>Ventas & Fiados:</b> Controla créditos y abonos de clientes.</p>
+                <p>⭐ <b>Modo Pro:</b> Funciones avanzadas y multinegocios desbloqueados permanentemente sin anuncios.</p>
+            </div>
+            <button type="button" onclick="cerrarOnboarding()" class="w-full bg-blue-600 text-white font-medium py-2.5 rounded-xl text-sm hover:bg-blue-700 transition shadow-md">Comenzar a Usar</button>
+        </div>
+    </div>
+
+    <!-- Encabezado -->
+    <header class="bg-blue-600 text-white p-4 shadow-md sticky top-0 z-40">
+        <div class="max-w-md mx-auto flex justify-between items-center">
+            <div>
+                <h1 class="text-sm font-bold">📦 GestorPro <span class="bg-emerald-500 text-[10px] px-1.5 py-0.5 rounded text-white ml-1 font-normal">PRO</span></h1>
+                <select id="select-negocio-activo" onchange="cambiarNegocioActivo(this.value)" class="text-xs bg-blue-700 text-white font-medium px-2 py-0.5 rounded mt-0.5 outline-none border border-blue-500">
+                    <!-- Dinámico -->
+                </select>
+            </div>
+            <button type="button" onclick="abrirOnboarding()" class="text-xs bg-blue-500 hover:bg-blue-700 px-2.5 py-1 rounded-lg transition">❓ Guía</button>
+        </div>
+    </header>
+
+    <!-- Contenedor Principal -->
+    <main class="flex-1 max-w-md w-full mx-auto p-4 pb-20">
+        
+        <!-- Pestaña 1: Resumen -->
+        <section id="tab-resumen" class="space-y-4">
+            <div class="bg-gradient-to-br from-blue-600 to-indigo-700 text-white p-4 rounded-xl shadow-md space-y-3">
+                <h2 class="text-sm font-bold">📊 Resumen General del Negocio</h2>
+                <div class="grid grid-cols-2 gap-2 text-xs">
+                    <div class="bg-white/10 p-2.5 rounded-lg">
+                        <p class="text-blue-200">Capital Inicial:</p>
+                        <p id="res-capital-inicial" class="text-sm font-bold">$0.00</p>
+                    </div>
+                    <div class="bg-white/10 p-2.5 rounded-lg">
+                        <p class="text-blue-200">Invertido en Prod:</p>
+                        <p id="res-invertido-prod" class="text-sm font-bold">$0.00</p>
+                    </div>
+                    <div class="bg-white/10 p-2.5 rounded-lg">
+                        <p class="text-blue-200">Ventas Totales:</p>
+                        <p id="res-ventas" class="text-sm font-bold">$0.00</p>
+                    </div>
+                    <div class="bg-white/10 p-2.5 rounded-lg">
+                        <p class="text-blue-200">Ganancia Neta:</p>
+                        <p id="res-ganancia" class="text-sm font-bold text-emerald-300">$0.00</p>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-2 text-xs pt-1 border-t border-white/20">
+                    <div class="bg-white/10 p-2.5 rounded-lg">
+                        <p class="text-blue-200">Falta por Vender:</p>
+                        <p id="res-falta-vender" class="text-sm font-bold text-amber-200">$0.00</p>
+                    </div>
+                    <div class="bg-white/10 p-2.5 rounded-lg">
+                        <p class="text-blue-200">Deudas Pendientes:</p>
+                        <p id="res-deudas" class="text-sm font-bold text-red-300">$0.00</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 space-y-2">
+                <h3 class="text-sm font-semibold text-slate-700">Reportes Ejecutivos (Modo Pro)</h3>
+                <p class="text-xs text-slate-500">Genera y descarga un informe completo listo para WPS Office.</p>
+                <button type="button" onclick="generarReportePDF()" class="w-full bg-red-600 text-white font-medium py-2 rounded-lg text-xs hover:bg-red-700 transition flex items-center justify-center gap-2">
+                    📄 Generar Reporte PDF / WPS
+                </button>
+            </div>
+        </section>
+
+        <!-- Pestaña 2: Inventario -->
+        <section id="tab-inventario" class="space-y-4 hidden">
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 space-y-2">
+                <h2 class="text-md font-semibold text-slate-700">💰 Capital Inicial del Negocio</h2>
+                <div class="flex gap-2">
+                    <input type="number" step="0.01" id="input-capital-negocio" class="flex-1 p-2 text-xs border rounded-lg" placeholder="Ej. 500.00">
+                    <button type="button" onclick="guardarCapitalInicial()" class="bg-blue-600 text-white px-3 py-2 rounded-lg text-xs font-medium hover:bg-blue-700 transition">Establecer</button>
+                </div>
+            </div>
+
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100">
+                <h2 class="text-md font-semibold text-slate-700 mb-3">Agregar Nuevo Producto</h2>
+                <form id="form-producto" class="space-y-3">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-600 mb-1">Nombre del producto</label>
+                        <input type="text" id="prod-nombre" required class="w-full p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Ej. Harina Pan">
+                    </div>
+                    <div class="grid grid-cols-3 gap-2">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-600 mb-1">Compra ($)</label>
+                            <input type="number" step="0.01" id="prod-compra" required oninput="calcularPreviewProducto()" class="w-full p-2.5 text-xs border rounded-lg outline-none" placeholder="0.00">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-600 mb-1">Venta ($)</label>
+                            <input type="number" step="0.01" id="prod-venta" required oninput="calcularPreviewProducto()" class="w-full p-2.5 text-xs border rounded-lg outline-none" placeholder="0.00">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-600 mb-1">Cantidad</label>
+                            <input type="number" id="prod-stock" required oninput="calcularPreviewProducto()" class="w-full p-2.5 text-xs border rounded-lg outline-none" placeholder="0">
+                        </div>
+                    </div>
+
+                    <div class="space-y-2 pt-2 border-t border-slate-100">
+                        <div class="flex justify-between items-center">
+                            <label class="text-xs font-medium text-slate-600">Gastos Adicionales (Bolsas, Transporte...)</label>
+                            <button type="button" onclick="agregarCampoGastoExtra()" class="text-xs bg-slate-100 text-blue-600 px-2 py-1 rounded font-bold hover:bg-slate-200">➕ Agregar Gasto</button>
+                        </div>
+                        <div id="contenedor-gastos-extras" class="space-y-2"></div>
+                    </div>
+
+                    <div id="preview-prod-box" class="bg-slate-50 p-3 rounded-lg border border-slate-200 text-xs text-slate-600 hidden">
+                        <p class="font-medium text-slate-700 mb-1">Cálculo del Producto:</p>
+                        <div class="flex justify-between"><span>Inversión Total (Compra + Extras):</span> <span id="prev-inv" class="font-semibold text-blue-600">$0.00</span></div>
+                        <div class="flex justify-between"><span>Venta Total Estimada:</span> <span id="prev-vent" class="font-semibold text-emerald-600">$0.00</span></div>
+                        <div class="flex justify-between border-t border-slate-200 mt-1 pt-1 font-bold text-indigo-600"><span>Ganancia Estimada:</span> <span id="prev-gan">$0.00</span></div>
+                    </div>
+
+                    <button type="submit" class="w-full bg-blue-600 text-white font-medium py-2.5 rounded-lg text-sm hover:bg-blue-700 transition">Guardar Producto</button>
+                </form>
+            </div>
+
+            <div>
+                <h2 class="text-md font-semibold text-slate-700 mb-2">Inventario Actual</h2>
+                <div id="lista-inventario" class="space-y-2"></div>
+            </div>
+        </section>
+
+        <!-- Pestaña 3: Ventas y Fiados -->
+        <section id="tab-ventas" class="space-y-4 hidden">
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100">
+                <h2 class="text-md font-semibold text-slate-700 mb-3">Registrar Venta o Fiado</h2>
+                <form id="form-venta" class="space-y-3">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-600 mb-1">Seleccionar Producto</label>
+                        <select id="venta-producto" required class="w-full p-2.5 text-sm border rounded-lg bg-white">
+                            <option value="">-- Elige un producto --</option>
+                        </select>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-600 mb-1">Cantidad</label>
+                            <input type="number" id="venta-cantidad" min="1" value="1" required class="w-full p-2.5 text-sm border rounded-lg">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-600 mb-1">Tipo de Venta</label>
+                            <select id="venta-tipo" onchange="toggleCamposFiado(this.value)" class="w-full p-2.5 text-sm border rounded-lg bg-white">
+                                <option value="contado">Contado</option>
+                                <option value="fiado">Fiado (Crédito)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div id="campos-fiado" class="space-y-2 bg-amber-50 p-3 rounded-lg border border-amber-200 hidden">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-700 mb-1">Nombre del Cliente (Deudor)</label>
+                            <input type="text" id="fiado-cliente" class="w-full p-2 text-xs border rounded-lg bg-white" placeholder="Ej. Carlos Pérez">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-700 mb-1">Abono Inicial ($)</label>
+                            <input type="number" step="0.01" id="fiado-abono" value="0" class="w-full p-2 text-xs border rounded-lg bg-white" placeholder="0.00">
+                        </div>
+                    </div>
+
+                    <button type="submit" class="w-full bg-emerald-600 text-white font-medium py-2.5 rounded-lg text-sm hover:bg-emerald-700 transition">Completar Operación</button>
+                </form>
+            </div>
+
+            <div>
+                <h2 class="text-md font-semibold text-slate-700 mb-2">Deudas y Fiados Pendientes</h2>
+                <div id="lista-deudas" class="space-y-2"></div>
+            </div>
+
+            <div>
+                <h2 class="text-md font-semibold text-slate-700 mb-2">Ventas Recientes</h2>
+                <div id="lista-ventas" class="space-y-2"></div>
+            </div>
+        </section>
+
+        <!-- Pestaña 4: Finanzas y Caja -->
+        <section id="tab-finanzas" class="space-y-4 hidden">
+            <div class="grid grid-cols-2 gap-3">
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 text-center">
+                    <p class="text-xs text-slate-500 mb-1">Entradas Totales</p>
+                    <p id="stat-entradas" class="text-lg font-bold text-blue-600">$0.00</p>
+                </div>
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 text-center">
+                    <p class="text-xs text-slate-500 mb-1">Dinero en Caja</p>
+                    <p id="stat-caja" class="text-lg font-bold text-emerald-600">$0.00</p>
+                </div>
+            </div>
+
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 space-y-3">
+                <h2 class="text-md font-semibold text-slate-700">Control de Caja y Empleados</h2>
+                <form id="form-transaccion-capital" class="space-y-3">
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-600 mb-1">Movimiento</label>
+                            <select id="cap-tipo" class="w-full p-2 text-xs border rounded-lg bg-white">
+                                <option value="ingreso">➕ Inyectar Dinero Extra</option>
+                                <option value="empleado">👤 Pagar a Empleado</option>
+                                <option value="gasto">🛒 Gasto Operativo / Compra</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-600 mb-1">Monto ($)</label>
+                            <input type="number" step="0.01" id="cap-monto" required class="w-full p-2 text-xs border rounded-lg" placeholder="0.00">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-600 mb-1">Descripción / Beneficiario</label>
+                        <input type="text" id="cap-desc" required class="w-full p-2 text-xs border rounded-lg" placeholder="Ej. Pago a empleado Juan / Compra de suministros">
+                    </div>
+                    <button type="submit" class="w-full bg-slate-800 text-white font-medium py-2 rounded-lg text-xs hover:bg-slate-900 transition">Registrar Movimiento</button>
+                </form>
+            </div>
+
+            <div>
+                <h2 class="text-md font-semibold text-slate-700 mb-2">Historial de Caja</h2>
+                <div id="lista-finanzas" class="space-y-2"></div>
+            </div>
+        </section>
+
+        <!-- Pestaña 5: Ajustes y Modo Pro -->
+        <section id="tab-ajustes" class="space-y-4 hidden">
+            <div class="bg-blue-50 border border-blue-200 p-4 rounded-xl space-y-2 text-xs text-blue-900">
+                <p class="font-bold text-sm text-blue-950">✨ Beneficios del Modo Pro (Permanente):</p>
+                <div class="space-y-1">
+                    <p>🚫 <b>100% sin Anuncios:</b> Experiencia limpia y libre de publicidad.</p>
+                    <p>🏢 <b>Multinegocios Ilimitados:</b> Crea y gestiona varias tiendas de forma independiente.</p>
+                    <p>🔗 <b>Sincronización con Socios:</b> Comparte datos al instante con tu equipo de trabajo.</p>
+                    <p>📄 <b>Reportes Avanzados:</b> Descarga informes ejecutivos completos para WPS Office.</p>
+                </div>
+            </div>
+
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 space-y-3">
+                <h2 class="text-md font-semibold text-slate-700">🏢 Mis Negocios (Multicuenta Pro)</h2>
+                <p class="text-xs text-slate-500">Crea y administra múltiples negocios sin restricciones.</p>
+                <div class="flex gap-2">
+                    <input type="text" id="nuevo-negocio-nombre" class="flex-1 p-2 text-xs border rounded-lg" placeholder="Nombre del nuevo negocio">
+                    <button type="button" onclick="crearNegocio()" class="bg-blue-600 text-white px-3 py-2 rounded-lg text-xs font-medium hover:bg-blue-700 transition">Crear</button>
+                </div>
+                <div id="lista-negocios-admin" class="space-y-2 pt-2 border-t border-slate-100"></div>
+            </div>
+
+            <div class="bg-gradient-to-br from-emerald-600 to-teal-700 text-white p-4 rounded-xl shadow-md space-y-3">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-md font-bold">⭐ GestorPro Modo PRO</h2>
+                    <span id="badge-pro-estado" class="bg-emerald-500 text-white text-xs px-2.5 py-0.5 rounded font-semibold border border-emerald-400">Activo (Permanente)</span>
+                </div>
+                <p id="texto-pro-estado" class="text-xs text-emerald-100">El Modo Pro está activado permanentemente. Disfruta de todas las funciones ilimitadas y sin anuncios.</p>
+                <div class="space-y-2 pt-2">
+                    <button type="button" onclick="generarTokenSincronizacion()" class="w-full bg-white text-teal-800 font-semibold py-2 rounded-lg text-xs hover:bg-teal-50 transition shadow">🔗 Sincronizar con Socios / Empleados (Pro)</button>
+                    <div class="flex gap-2">
+                        <input type="text" id="token-socio" class="flex-1 p-2 text-xs rounded-lg text-slate-800" placeholder="Código de socio">
+                        <button type="button" onclick="conectarSocio()" class="bg-slate-900 text-white px-3 py-2 rounded-lg text-xs font-medium hover:bg-slate-800 transition">Conectar</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 space-y-3">
+                <h2 class="text-md font-semibold text-slate-700">Respaldo General</h2>
+                <div class="grid grid-cols-2 gap-2">
+                    <button type="button" onclick="exportarRespaldo()" class="bg-slate-800 text-white py-2 rounded-lg text-xs font-medium hover:bg-slate-900 transition">📤 Exportar Todo</button>
+                    <label class="bg-slate-200 text-slate-700 py-2 rounded-lg text-xs font-medium hover:bg-slate-300 transition text-center cursor-pointer">
+                        📥 Restaurar
+                        <input type="file" id="input-respaldo" onchange="importarRespaldo(event)" class="hidden" accept=".json">
+                    </label>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Barra de Navegación Inferior -->
+    <nav class="bg-white border-t border-slate-200 fixed bottom-0 left-0 right-0 shadow-lg z-40">
+        <div class="max-w-md mx-auto flex justify-around p-1.5">
+            <button type="button" onclick="cambiarTab('resumen')" id="btn-tab-resumen" class="flex-1 text-center py-2 text-[10px] font-semibold text-blue-600 border-t-2 border-blue-600">Resumen</button>
+            <button type="button" onclick="cambiarTab('inventario')" id="btn-tab-inventario" class="flex-1 text-center py-2 text-[10px] font-medium text-slate-400 border-t-2 border-transparent">Inventario</button>
+            <button type="button" onclick="cambiarTab('ventas')" id="btn-tab-ventas" class="flex-1 text-center py-2 text-[10px] font-medium text-slate-400 border-t-2 border-transparent">Ventas/Fiados</button>
+            <button type="button" onclick="cambiarTab('finanzas')" id="btn-tab-finanzas" class="flex-1 text-center py-2 text-[10px] font-medium text-slate-400 border-t-2 border-transparent">Caja</button>
+            <button type="button" onclick="cambiarTab('ajustes')" id="btn-tab-ajustes" class="flex-1 text-center py-2 text-[10px] font-medium text-slate-400 border-t-2 border-transparent">Pro / Ajustes</button>
+        </div>
+    </nav>
+
+    <!-- Script de Lógica Principal -->
+    <script>
+        // Registro del Service Worker para PWABuilder
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW error:', err));
+        }
+
+        let negocios = JSON.parse(localStorage.getItem('multinegocios')) || [
+            { id: 1, nombre: 'Mi Negocio Principal', capitalInicial: 0, inventario: [], ventas: [], deudas: [], finanzas: [] }
+        ];
+        let negocioActualId = parseInt(localStorage.getItem('negocioActualId')) || negocios[0].id;
+        let onboardingVisto = localStorage.getItem('onboardingVisto') === 'true';
+
+        if (!onboardingVisto) {
+            document.getElementById('modal-onboarding').classList.remove('hidden');
+        }
+
+        function abrirOnboarding() { document.getElementById('modal-onboarding').classList.remove('hidden'); }
+        function cerrarOnboarding() { localStorage.setItem('onboardingVisto', 'true'); document.getElementById('modal-onboarding').classList.add('hidden'); }
+
+        function obtenerNegocio() {
+            let neg = negocios.find(n => n.id === negocioActualId);
+            if (!neg) { negocioActualId = negocios[0].id; neg = negocios[0]; }
+            if (neg.capitalInicial === undefined) neg.capitalInicial = 0;
+            if (!neg.deudas) neg.deudas = [];
+            if (!neg.inventario) neg.inventario = [];
+            if (!neg.ventas) neg.ventas = [];
+            if (!neg.finanzas) neg.finanzas = [];
+            return neg;
+        }
+
+        function persistir() {
+            localStorage.setItem('multinegocios', JSON.stringify(negocios));
+            localStorage.setItem('negocioActualId', negocioActualId);
+            renderizarTodo();
+        }
+
+        // Modo Pro siempre activo permanente
+        function esProActivo() {
+            return true;
+        }
+
+        function verificarEstadoPro() {
+            const badge = document.getElementById('badge-pro-estado');
+            const texto = document.getElementById('texto-pro-estado');
+            
+            if(badge) {
+                badge.innerText = "Activo (Permanente)";
+                badge.className = "bg-emerald-500 text-white text-xs px-2.5 py-0.5 rounded font-semibold border border-emerald-400";
+            }
+            if(texto) {
+                texto.innerText = "El Modo Pro está activo permanentemente. Disfruta de la aplicación sin anuncios y con todas las funciones ilimitadas desbloqueadas.";
+            }
+        }
+
+        function actualizarSelectNegocios() {
+            const selectHeader = document.getElementById('select-negocio-activo');
+            if(selectHeader) {
+                selectHeader.innerHTML = negocios.map(n => `<option value="${n.id}" ${n.id === negocioActualId ? 'selected' : ''}>🏢 ${n.nombre}</option>`).join('');
+            }
+
+            const contenedorAdmin = document.getElementById('lista-negocios-admin');
+            if(contenedorAdmin) {
+                contenedorAdmin.innerHTML = negocios.map(n => `
+                    <div class="flex justify-between items-center bg-slate-50 p-2 rounded-lg border border-slate-200">
+                        <span class="text-xs font-semibold text-slate-700">${n.nombre} ${n.id === negocioActualId ? '(Activo)' : ''}</span>
+                        ${negocios.length > 1 ? `<button type="button" onclick="eliminarNegocio(${n.id})" class="text-red-500 text-xs bg-red-50 px-2 py-1 rounded">Eliminar</button>` : ''}
+                    </div>
+                `).join('');
+            }
+        }
+
+        function cambiarNegocioActivo(id) { 
+            negocioActualId = parseInt(id); 
+            persistir(); 
+        }
+
+        function crearNegocio() {
+            const input = document.getElementById('nuevo-negocio-nombre');
+            const nombre = input.value.trim();
+            if(!nombre) return alert('Escribe un nombre para el negocio.');
+            const nuevoId = Date.now();
+            negocios.push({ id: nuevoId, nombre, capitalInicial: 0, inventario: [], ventas: [], deudas: [], finanzas: [] });
+            negocioActualId = nuevoId;
+            input.value = '';
+            persistir();
+            alert('¡Negocio creado con éxito!');
+        }
+
+        function eliminarNegocio(id) {
+            if(negocios.length <= 1) return alert('Debes tener al menos un negocio.');
+            negocios = negocios.filter(n => n.id !== id);
+            negocioActualId = negocios[0].id;
+            persistir();
+        }
+
+        function cambiarTab(tab) {
+            ['resumen', 'inventario', 'ventas', 'finanzas', 'ajustes'].forEach(t => {
+                const elTab = document.getElementById(`tab-${t}`);
+                const elBtn = document.getElementById(`btn-tab-${t}`);
+                if(elTab) elTab.classList.add('hidden');
+                if(elBtn) elBtn.className = "flex-1 text-center py-2 text-[10px] font-medium text-slate-400 border-t-2 border-transparent";
+            });
+            const activoTab = document.getElementById(`tab-${tab}`);
+            const activoBtn = document.getElementById(`btn-tab-${tab}`);
+            if(activoTab) activoTab.classList.remove('hidden');
+            if(activoBtn) activoBtn.className = "flex-1 text-center py-2 text-[10px] font-semibold text-blue-600 border-t-2 border-blue-600";
+            
+            if(tab === 'resumen') actualizarResumenGeneral();
+            if(tab === 'inventario') renderInventario();
+            if(tab === 'ventas') { actualizarSelectVentas(); renderVentas(); renderDeudas(); }
+            if(tab === 'finanzas') renderFinanzas();
+            if(tab === 'ajustes') verificarEstadoPro();
+        }
+
+        function agregarCampoGastoExtra(nombre = '', monto = '') {
+            const contenedor = document.getElementById('contenedor-gastos-extras');
+            if(!contenedor) return;
+            const div = document.createElement('div');
+            div.className = "flex gap-2 items-center";
+            div.innerHTML = `
+                <input type="text" class="gasto-nombre flex-1 p-2 text-xs border rounded-lg" placeholder="Nombre (ej. Bolsas)" value="${nombre}">
+                <input type="number" step="0.01" class="gasto-monto w-24 p-2 text-xs border rounded-lg" placeholder="Monto ($)" value="${monto}" oninput="calcularPreviewProducto()">
+                <button type="button" onclick="this.parentElement.remove(); calcularPreviewProducto();" class="text-red-500 text-xs bg-red-50 px-2 py-1 rounded">✕</button>
+            `;
+            contenedor.appendChild(div);
+        }
+
+        function calcularPreviewProducto() {
+            const compra = parseFloat(document.getElementById('prod-compra').value) || 0;
+            const venta = parseFloat(document.getElementById('prod-venta').value) || 0;
+            const stock = parseInt(document.getElementById('prod-stock').value) || 0;
+            
+            let extrasTotal = 0;
+            document.querySelectorAll('.gasto-monto').forEach(input => {
+                extrasTotal += parseFloat(input.value) || 0;
+            });
+
+            const invTotal = (compra * stock) + extrasTotal;
+            const ventaTotal = venta * stock;
+            const ganancia = ventaTotal - invTotal;
+
+            const elInv = document.getElementById('prev-inv');
+            const elVent = document.getElementById('prev-vent');
+            const elGan = document.getElementById('prev-gan');
+            const box = document.getElementById('preview-prod-box');
+
+            if(elInv) elInv.innerText = `$${invTotal.toFixed(2)}`;
+            if(elVent) elVent.innerText = `$${ventaTotal.toFixed(2)}`;
+            if(elGan) elGan.innerText = `$${ganancia.toFixed(2)}`;
+            if(box) box.classList.remove('hidden');
+        }
+
+        function guardarCapitalInicial() {
+            const neg = obtenerNegocio();
+            const cap = parseFloat(document.getElementById('input-capital-negocio').value) || 0;
+            neg.capitalInicial = cap;
+            persistir();
+            alert('¡Capital inicial guardado con éxito!');
+        }
+
+        document.getElementById('form-producto').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const neg = obtenerNegocio();
+            const nombre = document.getElementById('prod-nombre').value.trim();
+            const compra = parseFloat(document.getElementById('prod-compra').value);
+            const venta = parseFloat(document.getElementById('prod-venta').value);
+            const stock = parseInt(document.getElementById('prod-stock').value);
+
+            let gastosExtras = [];
+            let totalExtras = 0;
+            document.querySelectorAll('#contenedor-gastos-extras > div').forEach(div => {
+                let n = div.querySelector('.gasto-nombre').value.trim();
+                let m = parseFloat(div.querySelector('.gasto-monto').value) || 0;
+                if(n && m > 0) {
+                    gastosExtras.push({ nombre: n, monto: m });
+                    totalExtras += m;
+                }
+            });
+
+            const inversionTotal = (compra * stock) + totalExtras;
+
+            neg.inventario.push({ id: Date.now(), nombre, compra, venta, stock, gastosExtras, inversionTotal });
+            
+            neg.finanzas.unshift({
+                id: Date.now(),
+                tipo: 'gasto',
+                monto: inversionTotal,
+                desc: `Inversión stock: ${nombre} (x${stock})`,
+                fecha: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            });
+
+            persistir();
+            e.target.reset();
+            const contExtras = document.getElementById('contenedor-gastos-extras');
+            if(contExtras) contExtras.innerHTML = '';
+            const box = document.getElementById('preview-prod-box');
+            if(box) box.classList.add('hidden');
+            renderInventario();
+            alert('¡Producto agregado con éxito!');
+        });
+
+        function renderInventario() {
+            const neg = obtenerNegocio();
+            const contenedor = document.getElementById('lista-inventario');
+            if (!contenedor) return;
+            if (!neg.inventario || neg.inventario.length === 0) {
+                contenedor.innerHTML = `<p class="text-xs text-slate-400 text-center py-4">No hay productos en inventario.</p>`;
+                return;
+            }
+            contenedor.innerHTML = neg.inventario.map(prod => `
+                <div class="bg-white p-3 rounded-lg shadow-sm border border-slate-100 flex justify-between items-center">
+                    <div>
+                        <h3 class="text-sm font-semibold text-slate-700">${prod.nombre} (Stock: ${prod.stock})</h3>
+                        <p class="text-xs text-slate-500">Compra: $${prod.compra.toFixed(2)} | Venta: $${prod.venta.toFixed(2)} | Inv. Tot: $${prod.inversionTotal.toFixed(2)}</p>
+                    </div>
+                    <button type="button" onclick="eliminarProducto(${prod.id})" class="text-red-500 text-xs bg-red-50 p-2 rounded-md hover:bg-red-100">Eliminar</button>
+                </div>
+            `).join('');
+        }
+
+        function eliminarProducto(id) {
+            const neg = obtenerNegocio();
+            neg.inventario = neg.inventario.filter(p => p.id !== id);
+            persistir();
+        }
+
+        function actualizarSelectVentas() {
+            const neg = obtenerNegocio();
+            const select = document.getElementById('venta-producto');
+            if(!select) return;
+            select.innerHTML = `<option value="">-- Elige un producto --</option>` + 
+                (neg.inventario || []).map(prod => `<option value="${prod.id}">${prod.nombre} (Disponibles: ${prod.stock}) - $${prod.venta}</option>`).join('');
+        }
+
+        function toggleCamposFiado(val) {
+            const campos = document.getElementById('campos-fiado');
+            if(campos) {
+                if(val === 'fiado') campos.classList.remove('hidden');
+                else campos.classList.add('hidden');
+            }
+        }
+
+        document.getElementById('form-venta').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const neg = obtenerNegocio();
+            const prodId = parseInt(document.getElementById('venta-producto').value);
+            const cantidad = parseInt(document.getElementById('venta-cantidad').value);
+            const tipo = document.getElementById('venta-tipo').value;
+
+            const producto = neg.inventario.find(p => p.id === prodId);
+            if (!producto) return;
+            if (producto.stock < cantidad) return alert('Stock insuficiente.');
+
+            producto.stock -= cantidad;
+            const totalVenta = producto.venta * cantidad;
+            const costoProporcional = (producto.inversionTotal / (producto.stock + cantidad)) * cantidad;
+            const gananciaReal = totalVenta - costoProporcional;
+
+            if (tipo === 'contado') {
+                neg.ventas.unshift({
+                    id: Date.now(), nombre: producto.nombre, cantidad, total: totalVenta, ganancia: gananciaReal, tipo: 'Contado', fecha: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                });
+                neg.finanzas.unshift({
+                    id: Date.now(), tipo: 'ingreso', monto: totalVenta, desc: `Venta contado: ${producto.nombre} (x${cantidad})`, fecha: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                });
+            } else {
+                const cliente = document.getElementById('fiado-cliente').value.trim() || 'Cliente General';
+                const abono = parseFloat(document.getElementById('fiado-abono').value) || 0;
+                const saldoPendiente = totalVenta - abono;
+
+                neg.deudas.unshift({
+                    id: Date.now(), cliente, producto: producto.nombre, cantidad, total: totalVenta, abonado: abono, pendiente: saldoPendiente, fecha: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                });
+
+                if(abono > 0) {
+                    neg.finanzas.unshift({
+                        id: Date.now(), tipo: 'ingreso', monto: abono, desc: `Abono fiado (${cliente}) - ${producto.nombre}`, fecha: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                    });
+                }
+            }
+
+            persistir();
+            e.target.reset();
+            const camposFiado = document.getElementById('campos-fiado');
+            if(camposFiado) camposFiado.classList.add('hidden');
+            renderVentas();
+            renderDeudas();
+            alert('¡Operación registrada con éxito!');
+        });
+
+        function pagarDeuda(id) {
+            const neg = obtenerNegocio();
+            const deuda = neg.deudas.find(d => d.id === id);
+            if(!deuda) return;
+
+            let pagoRestante = deuda.pendiente;
+            deuda.abonado += pagoRestante;
+            deuda.pendiente = 0;
+
+            neg.finanzas.unshift({
+                id: Date.now(), tipo: 'ingreso', monto: pagoRestante, desc: `Pago total deuda (${deuda.cliente})`, fecha: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            });
+
+            neg.ventas.unshift({
+                id: Date.now(), nombre: deuda.producto, cantidad: deuda.cantidad, total: deuda.total, ganancia: deuda.total * 0.3, tipo: 'Fiado Pagado', fecha: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            });
+
+            neg.deudas = neg.deudas.filter(d => d.id !== id);
+            persistir();
+            renderDeudas();
+            renderVentas();
+            alert('¡Deuda marcada como pagada con éxito!');
+        }
+
+        function renderDeudas() {
+            const neg = obtenerNegocio();
+            const contenedor = document.getElementById('lista-deudas');
+            if (!contenedor) return;
+            if (!neg.deudas || neg.deudas.length === 0) {
+                contenedor.innerHTML = `<p class="text-xs text-slate-400 text-center py-2">No hay deudas pendientes.</p>`;
+                return;
+            }
+            contenedor.innerHTML = neg.deudas.map(d => `
+                <div class="bg-amber-50 p-3 rounded-lg border border-amber-200 flex justify-between items-center">
+                    <div>
+                        <h3 class="text-xs font-bold text-amber-900">${d.cliente} - ${d.producto} (x${d.cantidad})</h3>
+                        <p class="text-[10px] text-amber-700">Total: $${d.total.toFixed(2)} | Abonado: $${d.abonado.toFixed(2)} | <span class="font-bold text-red-600">Pendiente: $${d.pendiente.toFixed(2)}</span></p>
+                    </div>
+                    <button type="button" onclick="pagarDeuda(${d.id})" class="bg-emerald-600 text-white px-2.5 py-1.5 rounded text-[10px] font-semibold hover:bg-emerald-700">Marcar Pagada</button>
+                </div>
+            `).join('');
+        }
+
+        function renderVentas() {
+            const neg = obtenerNegocio();
+            const contenedor = document.getElementById('lista-ventas');
+            if (!contenedor) return;
+            if (!neg.ventas || neg.ventas.length === 0) {
+                contenedor.innerHTML = `<p class="text-xs text-slate-400 text-center py-2">No hay ventas registradas.</p>`;
+                return;
+            }
+            contenedor.innerHTML = neg.ventas.map(v => `
+                <div class="bg-white p-3 rounded-lg shadow-sm border border-slate-100 flex justify-between items-center">
+                    <div>
+                        <h3 class="text-xs font-semibold text-slate-700">${v.nombre} (x${v.cantidad}) - <span class="text-blue-600">${v.tipo}</span></h3>
+                        <p class="text-[10px] text-slate-400">Hora: ${v.fecha} | Ganancia: <span class="text-emerald-600 font-bold">+$${v.ganancia.toFixed(2)}</span></p>
+                    </div>
+                    <span class="text-xs font-bold text-emerald-600">+$${v.total.toFixed(2)}</span>
+                </div>
+            `).join('');
+        }
+
+        document.getElementById('form-transaccion-capital').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const neg = obtenerNegocio();
+            const tipo = document.getElementById('cap-tipo').value;
+            const monto = parseFloat(document.getElementById('cap-monto').value);
+            const desc = document.getElementById('cap-desc').value.trim();
+
+            neg.finanzas.unshift({
+                id: Date.now(), tipo, monto, desc, fecha: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            });
+
+            persistir();
+            e.target.reset();
+            renderFinanzas();
+            alert('¡Movimiento registrado con éxito!');
+        });
+
+        function renderFinanzas() {
+            const neg = obtenerNegocio();
+            const contenedor = document.getElementById('lista-finanzas');
+            if (!contenedor) return;
+            if (!neg.finanzas || neg.finanzas.length === 0) {
+                contenedor.innerHTML = `<p class="text-xs text-slate-400 text-center py-4">No hay movimientos en caja.</p>`;
+                return;
+            }
+            contenedor.innerHTML = neg.finanzas.map(f => {
+                let color = 'text-blue-600';
+                let signo = '+';
+                if(f.tipo === 'empleado' || f.tipo === 'gasto') {
+                    color = 'text-red-600';
+                    signo = '-';
+                }
+                return `
+                    <div class="bg-white p-3 rounded-lg shadow-sm border border-slate-100 flex justify-between items-center">
+                        <div>
+                            <h3 class="text-xs font-semibold text-slate-700">${f.desc}</h3>
+                            <p class="text-[10px] text-slate-400">Tipo: <span class="capitalize">${f.tipo}</span> | Hora: ${f.fecha}</p>
+                        </div>
+                        <span class="text-xs font-bold ${color}">${signo}$${f.monto.toFixed(2)}</span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function actualizarResumenGeneral() {
+            const neg = obtenerNegocio();
+            
+            const capitalInicial = neg.capitalInicial || 0;
+            const invertidoProd = (neg.inventario || []).reduce((acc, p) => acc + (p.inversionTotal || 0), 0);
+            const ventasTotales = (neg.ventas || []).reduce((acc, v) => acc + (v.total || 0), 0);
+            const gananciaNeta = (neg.ventas || []).reduce((acc, v) => acc + (v.ganancia || 0), 0);
+            const faltaPorVender = (neg.inventario || []).reduce((acc, p) => acc + ((p.venta || 0) * (p.stock || 0)), 0);
+            const deudasPendientes = (neg.deudas || []).reduce((acc, d) => acc + (d.pendiente || 0), 0);
+
+            const elCap = document.getElementById('res-capital-inicial');
+            if(elCap) elCap.innerText = `$${capitalInicial.toFixed(2)}`;
+            const elInv = document.getElementById('res-invertido-prod');
+            if(elInv) elInv.innerText = `$${invertidoProd.toFixed(2)}`;
+            const elVen = document.getElementById('res-ventas');
+            if(elVen) elVen.innerText = `$${ventasTotales.toFixed(2)}`;
+            const elGan = document.getElementById('res-ganancia');
+            if(elGan) elGan.innerText = `$${gananciaNeta.toFixed(2)}`;
+            const elFal = document.getElementById('res-falta-vender');
+            if(elFal) elFal.innerText = `$${faltaPorVender.toFixed(2)}`;
+            const elDeu = document.getElementById('res-deudas');
+            if(elDeu) elDeu.innerText = `$${deudasPendientes.toFixed(2)}`;
+
+            let entradas = (neg.finanzas || []).filter(f => f.tipo === 'ingreso').reduce((acc, f) => acc + f.monto, 0);
+            let salidas = (neg.finanzas || []).filter(f => f.tipo === 'empleado' || f.tipo === 'gasto').reduce((acc, f) => acc + f.monto, 0);
+            let caja = capitalInicial + entradas - salidas;
+
+            const elEnt = document.getElementById('stat-entradas');
+            if(elEnt) elEnt.innerText = `$${entradas.toFixed(2)}`;
+            const elCaj = document.getElementById('stat-caja');
+            if(elCaj) elCaj.innerText = `$${caja.toFixed(2)}`;
+        }
+
+        function generarReportePDF() {
+            try {
+                const neg = obtenerNegocio();
+                const capitalInicial = neg.capitalInicial || 0;
+                const invertidoProd = (neg.inventario || []).reduce((acc, p) => acc + (p.inversionTotal || 0), 0);
+                const ventasTotales = (neg.ventas || []).reduce((acc, v) => acc + (v.total || 0), 0);
+                const gananciaNeta = (neg.ventas || []).reduce((acc, v) => acc + (v.ganancia || 0), 0);
+                const faltaPorVender = (neg.inventario || []).reduce((acc, p) => acc + ((p.venta || 0) * (p.stock || 0)), 0);
+                const deudasPendientes = (neg.deudas || []).reduce((acc, d) => acc + (d.pendiente || 0), 0);
+
+                const contenidoHtml = `<!DOCTYPE html>
+                <html lang="es">
+                <head>
+                    <meta charset="utf-8">
+                    <title>Reporte Ejecutivo - ${neg.nombre}</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; padding: 20px; color: #333; line-height: 1.4; background: #fff; }
+                        h1 { color: #1e3a8a; border-bottom: 2px solid #1e3a8a; padding-bottom: 5px; font-size: 20px; }
+                        h3 { color: #334155; margin-top: 20px; font-size: 14px; border-left: 4px solid #2563eb; padding-left: 6px; }
+                        table { width: 100%; border-collapse: collapse; margin-top: 8px; margin-bottom: 12px; }
+                        th, td { border: 1px solid #cbd5e1; padding: 6px; font-size: 11px; text-align: left; }
+                        th { background-color: #f1f5f9; color: #1e293b; }
+                        .summary-box { background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; border-radius: 6px; margin-top: 10px; }
+                        .summary-box p { margin: 4px 0; font-size: 12px; }
+                    </style>
+                </head>
+                <body>
+                    <h1>Reporte Ejecutivo: ${neg.nombre}</h1>
+                    <p style="font-size: 11px; color: #64748b;">Fecha de emisión: ${new Date().toLocaleString()}</p>
+                    
+                    <div class="summary-box">
+                        <p><b>Capital Inicial:</b> $${capitalInicial.toFixed(2)}</p>
+                        <p><b>Invertido en Productos:</b> $${invertidoProd.toFixed(2)}</p>
+                        <p><b>Ventas Totales:</b> $${ventasTotales.toFixed(2)}</p>
+                        <p><b>Ganancia Neta:</b> $${gananciaNeta.toFixed(2)}</p>
+                        <p><b>Falta por Vender:</b> $${faltaPorVender.toFixed(2)}</p>
+                        <p><b>Deudas Pendientes (Fiados):</b> $${deudasPendientes.toFixed(2)}</p>
+                    </div>
+
+                    <h3>Inventario Actual</h3>
+                    <table>
+                        <tr><th>Producto</th><th>Compra</th><th>Venta</th><th>Stock</th><th>Inversión Tot.</th></tr>
+                        ${neg.inventario && neg.inventario.length > 0 ? neg.inventario.map(p => `<tr><td>${p.nombre}</td><td>$${(p.compra||0).toFixed(2)}</td><td>$${(p.venta||0).toFixed(2)}</td><td>${p.stock}</td><td>$${(p.inversionTotal||0).toFixed(2)}</td></tr>`).join('') : '<tr><td colspan="5" style="text-align:center;">Sin productos registrados</td></tr>'}
+                    </table>
+
+                    <h3>Ventas Recientes</h3>
+                    <table>
+                        <tr><th>Producto</th><th>Cant</th><th>Total</th><th>Ganancia</th><th>Tipo</th><th>Hora</th></tr>
+                        ${neg.ventas && neg.ventas.length > 0 ? neg.ventas.map(v => `<tr><td>${v.nombre}</td><td>${v.cantidad}</td><td>$${(v.total||0).toFixed(2)}</td><td>$${(v.ganancia||0).toFixed(2)}</td><td>${v.tipo}</td><td>${v.fecha}</td></tr>`).join('') : '<tr><td colspan="6" style="text-align:center;">Sin ventas registradas</td></tr>'}
+                    </table>
+
+                    <h3>Deudas y Fiados Pendientes</h3>
+                    <table>
+                        <tr><th>Cliente</th><th>Producto</th><th>Cant</th><th>Total</th><th>Abonado</th><th>Pendiente</th></tr>
+                        ${neg.deudas && neg.deudas.length > 0 ? neg.deudas.map(d => `<tr><td>${d.cliente}</td><td>${d.producto}</td><td>${d.cantidad}</td><td>$${(d.total||0).toFixed(2)}</td><td>$${(d.abonado||0).toFixed(2)}</td><td>$${(d.pendiente||0).toFixed(2)}</td></tr>`).join('') : '<tr><td colspan="6" style="text-align:center;">Sin deudas pendientes</td></tr>'}
+                    </table>
+                </body>
+                </html>`;
+
+                const blob = new Blob([contenidoHtml], { type: 'text/html;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `Reporte_${neg.nombre.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0,10)}.html`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                alert('¡Reporte generado y descargado con éxito! Ábrelo con WPS Office para visualizarlo o guardarlo como PDF.');
+            } catch (err) {
+                alert('Error al generar el reporte: ' + err.message);
+            }
+        }
+
+        function generarTokenSincronizacion() {
+            const neg = obtenerNegocio();
+            const tokenData = btoa(JSON.stringify(neg));
+            prompt("Código Pro de Sincronización (Compártelo con tu socio):", tokenData);
+        }
+
+        function conectarSocio() {
+            const token = document.getElementById('token-socio').value.trim();
+            if(!token) return alert('Pega el código.');
+            try {
+                const socioNeg = JSON.parse(atob(token));
+                if(socioNeg && socioNeg.nombre) {
+                    negocios.push(socioNeg);
+                    negocioActualId = socioNeg.id;
+                    persistir();
+                    document.getElementById('token-socio').value = '';
+                    alert('¡Socio conectado con éxito!');
+                }
+            } catch(e) { alert('Código inválido.'); }
+        }
+
+        function exportarRespaldo() {
+            const blob = new Blob([JSON.stringify(negocios, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `respaldo_gestorpro.json`;
+            a.click();
+        }
+
+        function importarRespaldo(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    negocios = JSON.parse(e.target.result);
+                    negocioActualId = negocios[0].id;
+                    persistir();
+                    alert('¡Restaurado con éxito!');
+                } catch(err) {
+                    alert('Archivo no válido.');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function renderizarTodo() {
+            actualizarSelectNegocios();
+            renderInventario();
+            actualizarSelectVentas();
+            actualizarResumenGeneral();
+            renderVentas();
+            renderDeudas();
+            renderFinanzas();
+            verificarEstadoPro();
+        }
+
+        renderizarTodo();
+    </script>
 </body>
-</html>
+</html>  
