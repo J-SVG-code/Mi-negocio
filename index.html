@@ -1,94 +1,6 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<script>
-    // 1. Interceptar localStorage para asegurar respuestas afirmativas
-    const originalGetItem = Storage.prototype.getItem;
-    Storage.prototype.getItem = function(key) {
-        const val = originalGetItem.call(this, key);
-        const k = key.toLowerCase();
-        if (k.includes('pro') || k.includes('premium') || k.includes('ad') || k.includes('video') || k.includes('suscr') || k.includes('modo') || k.includes('visto')) {
-            return 'true';
-        }
-        return val;
-    };
-
-    // 2. Forzar variables globales de estado Pro como verdaderas
-    ['isPro', 'modoPro', 'pro', 'premium', 'isPremium', 'modoProActivo', 'esPro', 'anuncioVisto', 'videoVisto'].forEach(varName => {
-        Object.defineProperty(window, varName, {
-            get: function() { return true; },
-            set: function(v) {},
-            configurable: true
-        });
-    });
-
-    // 3. Interceptar las alertas del navegador para bloquear avisos innecesarios
-    const originalAlert = window.alert;
-    window.alert = function(msg) {
-        if (typeof msg === 'string' && (msg.toLowerCase().includes('modo pro') || msg.toLowerCase().includes('anuncio') || msg.toLowerCase().includes('exclusiva'))) {
-            console.log("Aviso bloqueado automáticamente.");
-            return;
-        }
-        return originalAlert.apply(this, arguments);
-    };
-
-    // 4. Funciones de validación forzadas a retornar true
-    window.verificarPro = () => true;
-    window.esUsuarioPro = () => true;
-    window.chequearPro = () => true;
-    window.validarPro = () => true;
-    window.checkPro = () => true;
-    window.isUserPro = () => true;
-    window.mostrarAnuncio = (cb) => { if(cb) cb(); };
-    window.verVideoPremio = (cb) => { if(cb) cb(); };
-    window.cargarAnuncio = (cb) => { if(cb) cb(); };
-</script>
-<style>
-    /* Ocultar cualquier botón, banner o rastro de anuncios */
-    .ver-video-btn, .ad-banner, .rewarded-ad, [id*="video"], [class*="anuncio"] {
-        display: none !important;
-    }
-</style>
-
-<!-- Firebase Firestore para Sincronización en Tiempo Real -->
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/13.3.0/firebase-app.js";
-  import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/13.3.0/firebase-firestore.js";
-
-  const firebaseConfig = {
-    apiKey: "AIzaSyAiXgqBk_tHsz5Ukar-YuvhZPQcg57Ss8g",
-    authDomain: "gestorpro-sync-8b047.firebaseapp.com",
-    projectId: "gestorpro-sync-8b047",
-    storageBucket: "gestorpro-sync-8b047.firebasestorage.app",
-    messagingSenderId: "644496640474",
-    appId: "1:644496640474:web:d158f3647eb748627a58e3"
-  };
-
-  const app = initializeApp(firebaseConfig);
-  const db = getFirestore(app);
-  const docRef = doc(db, "negocios", "principal");
-
-  window.sincronizarNube = async function(datos) {
-    try {
-      await setDoc(docRef, { data: JSON.stringify(datos), actualizado: Date.now() });
-    } catch(e) {
-      console.error("Error al sincronizar con la nube:", e);
-    }
-  };
-
-  onSnapshot(docRef, (snap) => {
-    if (snap.exists() && snap.data().data) {
-      const nubeRemota = snap.data().data;
-      const actualLocal = localStorage.getItem('gestorpro_datos');
-      if (nubeRemota !== actualLocal) {
-        localStorage.setItem('gestorpro_datos', nubeRemota);
-        if (typeof renderizarApp === 'function') renderizarApp();
-        else if (typeof cargarDatos === 'function') cargarDatos();
-      }
-    }
-  });
-</script>
-
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GestorPro - Control de Negocio</title>
@@ -96,6 +8,8 @@
     <link rel="manifest" href="./manifest.json">
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Librería para Escanear Códigos QR -->
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
 
@@ -111,9 +25,21 @@
                 <p>📊 <b>Resumen Financiero:</b> Inversión, ventas, ganancias y deudas.</p>
                 <p>📦 <b>Inventario & Costos:</b> Precios de compra, venta y gastos extra.</p>
                 <p>🤝 <b>Ventas & Fiados:</b> Controla créditos y abonos de clientes.</p>
-                <p>⭐ <b>Modo Pro:</b> Funciones avanzadas y multinegocios desbloqueados permanentemente sin anuncios.</p>
+                <p>⭐ <b>Modo Pro:</b> Multinegocios, socios y 100% sin anuncios activado permanentemente.</p>
             </div>
             <button type="button" onclick="cerrarOnboarding()" class="w-full bg-blue-600 text-white font-medium py-2.5 rounded-xl text-sm hover:bg-blue-700 transition shadow-md">Comenzar a Usar</button>
+        </div>
+    </div>
+
+    <!-- Modal de Escáner QR -->
+    <div id="modal-escaner" class="fixed inset-0 bg-slate-900/90 z-50 flex flex-col items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-4 space-y-3 shadow-2xl">
+            <div class="flex justify-between items-center">
+                <h3 class="text-sm font-bold text-slate-800">📷 Escanear Código QR de Socio</h3>
+                <button type="button" onclick="cerrarEscanerQR()" class="text-red-500 font-bold text-sm px-2">✕ Cerrar</button>
+            </div>
+            <div id="reader" class="w-full rounded-lg overflow-hidden bg-slate-100"></div>
+            <p class="text-[10px] text-slate-500 text-center">Apunta la cámara al código QR que aparece en el otro teléfono.</p>
         </div>
     </div>
 
@@ -121,7 +47,7 @@
     <header class="bg-blue-600 text-white p-4 shadow-md sticky top-0 z-40">
         <div class="max-w-md mx-auto flex justify-between items-center">
             <div>
-                <h1 class="text-sm font-bold">📦 GestorPro <span class="bg-emerald-500 text-[10px] px-1.5 py-0.5 rounded text-white ml-1 font-normal">PRO</span></h1>
+                <h1 class="text-sm font-bold">📦 GestorPro</h1>
                 <select id="select-negocio-activo" onchange="cambiarNegocioActivo(this.value)" class="text-xs bg-blue-700 text-white font-medium px-2 py-0.5 rounded mt-0.5 outline-none border border-blue-500">
                     <!-- Dinámico -->
                 </select>
@@ -168,8 +94,8 @@
             </div>
 
             <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 space-y-2">
-                <h3 class="text-sm font-semibold text-slate-700">Reportes Ejecutivos (Modo Pro)</h3>
-                <p class="text-xs text-slate-500">Genera y descarga un informe completo listo para WPS Office.</p>
+                <h3 class="text-sm font-semibold text-slate-700">Reportes Ejecutivos (Función Pro)</h3>
+                <p class="text-xs text-slate-500">Genera y descarga un informe completo listo para WPS Office. <span class="text-emerald-600 font-medium">Modo Pro permanente activo.</span></p>
                 <button type="button" onclick="generarReportePDF()" class="w-full bg-red-600 text-white font-medium py-2 rounded-lg text-xs hover:bg-red-700 transition flex items-center justify-center gap-2">
                     📄 Generar Reporte PDF / WPS
                 </button>
@@ -333,16 +259,16 @@
             <div class="bg-blue-50 border border-blue-200 p-4 rounded-xl space-y-2 text-xs text-blue-900">
                 <p class="font-bold text-sm text-blue-950">✨ Beneficios del Modo Pro (Permanente):</p>
                 <div class="space-y-1">
-                    <p>🚫 <b>100% sin Anuncios:</b> Experiencia limpia y libre de publicidad.</p>
+                    <p>🚫 <b>100% Sin Anuncios:</b> Cero publicidad en toda la aplicación.</p>
                     <p>🏢 <b>Multinegocios Ilimitados:</b> Crea y gestiona varias tiendas de forma independiente.</p>
-                    <p>🔗 <b>Sincronización con Socios:</b> Comparte datos al instante con tu equipo de trabajo.</p>
+                    <p>🔗 <b>Sincronización con Socios:</b> Comparte datos en tiempo real mediante QR o código.</p>
                     <p>📄 <b>Reportes Avanzados:</b> Descarga informes ejecutivos completos para WPS Office.</p>
                 </div>
             </div>
 
             <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 space-y-3">
                 <h2 class="text-md font-semibold text-slate-700">🏢 Mis Negocios (Multicuenta Pro)</h2>
-                <p class="text-xs text-slate-500">Crea y administra múltiples negocios sin restricciones.</p>
+                <p class="text-xs text-slate-500">Crea y gestiona múltiples negocios de forma ilimitada.</p>
                 <div class="flex gap-2">
                     <input type="text" id="nuevo-negocio-nombre" class="flex-1 p-2 text-xs border rounded-lg" placeholder="Nombre del nuevo negocio">
                     <button type="button" onclick="crearNegocio()" class="bg-blue-600 text-white px-3 py-2 rounded-lg text-xs font-medium hover:bg-blue-700 transition">Crear</button>
@@ -350,29 +276,31 @@
                 <div id="lista-negocios-admin" class="space-y-2 pt-2 border-t border-slate-100"></div>
             </div>
 
-            <div class="bg-gradient-to-br from-emerald-600 to-teal-700 text-white p-4 rounded-xl shadow-md space-y-3">
+            <div class="bg-gradient-to-br from-amber-500 to-orange-600 text-white p-4 rounded-xl shadow-md space-y-3">
                 <div class="flex justify-between items-center">
                     <h2 class="text-md font-bold">⭐ GestorPro Modo PRO</h2>
-                    <span id="badge-pro-estado" class="bg-emerald-500 text-white text-xs px-2.5 py-0.5 rounded font-semibold border border-emerald-400">Activo (Permanente)</span>
+                    <span id="badge-pro-estado" class="bg-emerald-500 text-white text-xs px-2 py-0.5 rounded font-semibold">Permanente</span>
                 </div>
-                <p id="texto-pro-estado" class="text-xs text-emerald-100">El Modo Pro está activado permanentemente. Disfruta de todas las funciones ilimitadas y sin anuncios.</p>
+                <p id="texto-pro-estado" class="text-xs text-amber-100">El Modo Pro está activado permanentemente. Disfruta de todas las funciones premium sin anuncios.</p>
                 <div class="space-y-2 pt-2">
-                    <button type="button" onclick="generarTokenSincronizacion()" class="w-full bg-white text-teal-800 font-semibold py-2 rounded-lg text-xs hover:bg-teal-50 transition shadow">🔗 Sincronizar con Socios / Empleados (Pro)</button>
-                    <div class="flex gap-2">
-                        <input type="text" id="token-socio" class="flex-1 p-2 text-xs rounded-lg text-slate-800" placeholder="Código de socio">
+                    <!-- Botón para ver QR Personal -->
+                    <button type="button" onclick="mostrarCodigoQR()" class="w-full bg-white text-orange-700 font-semibold py-2 rounded-lg text-xs hover:bg-amber-50 transition shadow">📱 Ver Código QR Personal de Sincronización</button>
+                    
+                    <!-- Contenedor del QR Generado -->
+                    <div id="qr-display-container" class="hidden bg-white p-3 rounded-lg text-center space-y-2 text-slate-800">
+                        <p class="text-[11px] font-bold">Tu Código QR Personal de Negocio:</p>
+                        <div id="qr-image-box" class="flex justify-center"></div>
+                        <p id="qr-text-code" class="text-[10px] font-mono text-slate-500 select-all bg-slate-100 p-1 rounded"></p>
+                        <p class="text-[10px] text-slate-500">Muestra este código QR a tu socio para que lo escanee desde su app.</p>
+                    </div>
+
+                    <div class="flex gap-2 pt-1">
+                        <input type="text" id="token-socio" class="flex-1 p-2 text-xs rounded-lg text-slate-800" placeholder="Código de socio o escanear QR">
                         <button type="button" onclick="conectarSocio()" class="bg-slate-900 text-white px-3 py-2 rounded-lg text-xs font-medium hover:bg-slate-800 transition">Conectar</button>
                     </div>
-                </div>
-            </div>
 
-            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 space-y-3">
-                <h2 class="text-md font-semibold text-slate-700">Respaldo General</h2>
-                <div class="grid grid-cols-2 gap-2">
-                    <button type="button" onclick="exportarRespaldo()" class="bg-slate-800 text-white py-2 rounded-lg text-xs font-medium hover:bg-slate-900 transition">📤 Exportar Todo</button>
-                    <label class="bg-slate-200 text-slate-700 py-2 rounded-lg text-xs font-medium hover:bg-slate-300 transition text-center cursor-pointer">
-                        📥 Restaurar
-                        <input type="file" id="input-respaldo" onchange="importarRespaldo(event)" class="hidden" accept=".json">
-                    </label>
+                    <!-- Botón para Escanear QR -->
+                    <button type="button" onclick="abrirEscanerQR()" class="w-full bg-slate-900 text-white font-semibold py-2 rounded-lg text-xs hover:bg-slate-800 transition shadow">📷 Escanear QR con la Cámara</button>
                 </div>
             </div>
         </section>
@@ -390,7 +318,71 @@
         </div>
     </nav>
 
-    <!-- Script de Lógica Principal -->
+    <!-- Script de Firebase Firestore con Sincronización en Tiempo Real -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/13.3.0/firebase-app.js";
+        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/13.3.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAiXgqBk_tHsz5Ukar-YuvhZPQcg57Ss8g",
+            authDomain: "gestorpro-sync-8b047.firebaseapp.com",
+            projectId: "gestorpro-sync-8b047",
+            storageBucket: "gestorpro-sync-8b047.firebasestorage.app",
+            messagingSenderId: "644496640474",
+            appId: "1:644496640474:web:d158f3647eb748627a58e3"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        let currentSyncCode = localStorage.getItem('gestorpro_sync_code') || '';
+        if(!currentSyncCode) {
+            currentSyncCode = 'negocio_' + Math.random().toString(36).substring(2, 10);
+            localStorage.setItem('gestorpro_sync_code', currentSyncCode);
+        }
+
+        let unsubscribe = null;
+        let isRemoteUpdate = false;
+
+        window.configurarSincronizacionNube = function(code) {
+            currentSyncCode = code;
+            localStorage.setItem('gestorpro_sync_code', code);
+            iniciarListener(code);
+        };
+
+        function iniciarListener(code) {
+            if (unsubscribe) unsubscribe();
+            const docRef = doc(db, "negocios", code);
+
+            unsubscribe = onSnapshot(docRef, (snap) => {
+                if (snap.exists() && snap.data().data) {
+                    const nubeRemota = snap.data().data;
+                    const actualLocal = localStorage.getItem('multinegocios');
+                    if (nubeRemota !== actualLocal) {
+                        isRemoteUpdate = true;
+                        localStorage.setItem('multinegocios', nubeRemota);
+                        if (typeof window.recargarDatosApp === 'function') {
+                            window.recargarDatosApp();
+                        }
+                        isRemoteUpdate = false;
+                    }
+                }
+            });
+        }
+
+        window.sincronizarNube = async function(datosJson) {
+            if (isRemoteUpdate) return;
+            try {
+                const docRef = doc(db, "negocios", currentSyncCode);
+                await setDoc(docRef, { data: datosJson, actualizado: Date.now() });
+            } catch(e) {
+                console.error("Error al sincronizar con la nube:", e);
+            }
+        };
+
+        iniciarListener(currentSyncCode);
+    </script>
+
     <script>
         // Registro del Service Worker para PWABuilder
         if ('serviceWorker' in navigator) {
@@ -407,6 +399,12 @@
             document.getElementById('modal-onboarding').classList.remove('hidden');
         }
 
+        window.recargarDatosApp = function() {
+            negocios = JSON.parse(localStorage.getItem('multinegocios')) || negocios;
+            negocioActualId = parseInt(localStorage.getItem('negocioActualId')) || negocios[0].id;
+            renderizarTodo();
+        };
+
         function abrirOnboarding() { document.getElementById('modal-onboarding').classList.remove('hidden'); }
         function cerrarOnboarding() { localStorage.setItem('onboardingVisto', 'true'); document.getElementById('modal-onboarding').classList.add('hidden'); }
 
@@ -422,12 +420,16 @@
         }
 
         function persistir() {
-            localStorage.setItem('multinegocios', JSON.stringify(negocios));
+            const dataJson = JSON.stringify(negocios);
+            localStorage.setItem('multinegocios', dataJson);
             localStorage.setItem('negocioActualId', negocioActualId);
+            if (typeof window.sincronizarNube === 'function') {
+                window.sincronizarNube(dataJson);
+            }
             renderizarTodo();
         }
 
-        // Modo Pro siempre activo permanente
+        // MODO PRO PERMANENTE
         function esProActivo() {
             return true;
         }
@@ -437,12 +439,74 @@
             const texto = document.getElementById('texto-pro-estado');
             
             if(badge) {
-                badge.innerText = "Activo (Permanente)";
-                badge.className = "bg-emerald-500 text-white text-xs px-2.5 py-0.5 rounded font-semibold border border-emerald-400";
+                badge.innerText = "Permanente";
+                badge.className = "bg-emerald-500 text-white text-xs px-2 py-0.5 rounded font-semibold";
             }
             if(texto) {
-                texto.innerText = "El Modo Pro está activo permanentemente. Disfruta de la aplicación sin anuncios y con todas las funciones ilimitadas desbloqueadas.";
+                texto.innerText = "¡El Modo Pro está activado permanentemente! Disfruta de multinegocios, socios y cero anuncios.";
             }
+        }
+
+        // --- FUNCIONES DE CÓDIGO QR Y ESCÁNER ---
+        function mostrarCodigoQR() {
+            const codigoActual = localStorage.getItem('gestorpro_sync_code') || 'negocio_principal';
+            const qrContainer = document.getElementById('qr-display-container');
+            const qrImageBox = document.getElementById('qr-image-box');
+            const qrTextCode = document.getElementById('qr-text-code');
+
+            const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(codigoActual)}`;
+            qrImageBox.innerHTML = `<img src="${qrUrl}" alt="Código QR de Sincronización" class="rounded-lg shadow border p-1 bg-white">`;
+            qrTextCode.innerText = codigoActual;
+            qrContainer.classList.toggle('hidden');
+        }
+
+        let html5QrCode = null;
+
+        function abrirEscanerQR() {
+            document.getElementById('modal-escaner').classList.remove('hidden');
+            
+            setTimeout(() => {
+                if (!html5QrCode) {
+                    html5QrCode = new Html5Qrcode("reader");
+                }
+                html5QrCode.start(
+                    { facingMode: "environment" },
+                    { fps: 10, qrbox: { width: 200, height: 200 } },
+                    (decodedText) => {
+                        document.getElementById('token-socio').value = decodedText;
+                        cerrarEscanerQR();
+                        conectarSocio();
+                    },
+                    (errorMessage) => {}
+                ).catch(err => {
+                    console.error("Error al iniciar la cámara:", err);
+                    alert("No se pudo acceder a la cámara. Asegúrate de dar permisos en tu navegador.");
+                    cerrarEscanerQR();
+                });
+            }, 300);
+        }
+
+        function cerrarEscanerQR() {
+            if (html5QrCode) {
+                html5QrCode.stop().then(() => {
+                    document.getElementById('modal-escaner').classList.add('hidden');
+                }).catch(() => {
+                    document.getElementById('modal-escaner').classList.add('hidden');
+                });
+            } else {
+                document.getElementById('modal-escaner').classList.add('hidden');
+            }
+        }
+
+        function conectarSocio() {
+            const codigo = document.getElementById('token-socio').value.trim();
+            if(!codigo) return alert('Ingresa o escanea un código de socio válido.');
+            
+            if (typeof window.configurarSincronizacionNube === 'function') {
+                window.configurarSincronizacionNube(codigo);
+            }
+            document.getElementById('token-socio').value = '';
+            alert('¡Conectado con éxito! Los datos ahora se sincronizan en tiempo real con este código.');
         }
 
         function actualizarSelectNegocios() {
@@ -794,7 +858,7 @@
             const invertidoProd = (neg.inventario || []).reduce((acc, p) => acc + (p.inversionTotal || 0), 0);
             const ventasTotales = (neg.ventas || []).reduce((acc, v) => acc + (v.total || 0), 0);
             const gananciaNeta = (neg.ventas || []).reduce((acc, v) => acc + (v.ganancia || 0), 0);
-            const faltaPorVender = (neg.inventario || []).reduce((acc, p) => acc + ((p.venta || 0) * (p.stock || 0)), 0);
+            const faltaByVender = (neg.inventario || []).reduce((acc, p) => acc + ((p.venta || 0) * (p.stock || 0)), 0);
             const deudasPendientes = (neg.deudas || []).reduce((acc, d) => acc + (d.pendiente || 0), 0);
 
             const elCap = document.getElementById('res-capital-inicial');
@@ -806,7 +870,7 @@
             const elGan = document.getElementById('res-ganancia');
             if(elGan) elGan.innerText = `$${gananciaNeta.toFixed(2)}`;
             const elFal = document.getElementById('res-falta-vender');
-            if(elFal) elFal.innerText = `$${faltaPorVender.toFixed(2)}`;
+            if(elFal) elFal.innerText = `$${faltaByVender.toFixed(2)}`;
             const elDeu = document.getElementById('res-deudas');
             if(elDeu) elDeu.innerText = `$${deudasPendientes.toFixed(2)}`;
 
@@ -827,7 +891,7 @@
                 const invertidoProd = (neg.inventario || []).reduce((acc, p) => acc + (p.inversionTotal || 0), 0);
                 const ventasTotales = (neg.ventas || []).reduce((acc, v) => acc + (v.total || 0), 0);
                 const gananciaNeta = (neg.ventas || []).reduce((acc, v) => acc + (v.ganancia || 0), 0);
-                const faltaPorVender = (neg.inventario || []).reduce((acc, p) => acc + ((p.venta || 0) * (p.stock || 0)), 0);
+                const faltaByVender = (neg.inventario || []).reduce((acc, p) => acc + ((p.venta || 0) * (p.stock || 0)), 0);
                 const deudasPendientes = (neg.deudas || []).reduce((acc, d) => acc + (d.pendiente || 0), 0);
 
                 const contenidoHtml = `<!DOCTYPE html>
@@ -855,7 +919,7 @@
                         <p><b>Invertido en Productos:</b> $${invertidoProd.toFixed(2)}</p>
                         <p><b>Ventas Totales:</b> $${ventasTotales.toFixed(2)}</p>
                         <p><b>Ganancia Neta:</b> $${gananciaNeta.toFixed(2)}</p>
-                        <p><b>Falta por Vender:</b> $${faltaPorVender.toFixed(2)}</p>
+                        <p><b>Falta por Vender:</b> $${faltaByVender.toFixed(2)}</p>
                         <p><b>Deudas Pendientes (Fiados):</b> $${deudasPendientes.toFixed(2)}</p>
                     </div>
 
@@ -894,53 +958,6 @@
             }
         }
 
-        function generarTokenSincronizacion() {
-            const neg = obtenerNegocio();
-            const tokenData = btoa(JSON.stringify(neg));
-            prompt("Código Pro de Sincronización (Compártelo con tu socio):", tokenData);
-        }
-
-        function conectarSocio() {
-            const token = document.getElementById('token-socio').value.trim();
-            if(!token) return alert('Pega el código.');
-            try {
-                const socioNeg = JSON.parse(atob(token));
-                if(socioNeg && socioNeg.nombre) {
-                    negocios.push(socioNeg);
-                    negocioActualId = socioNeg.id;
-                    persistir();
-                    document.getElementById('token-socio').value = '';
-                    alert('¡Socio conectado con éxito!');
-                }
-            } catch(e) { alert('Código inválido.'); }
-        }
-
-        function exportarRespaldo() {
-            const blob = new Blob([JSON.stringify(negocios, null, 2)], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `respaldo_gestorpro.json`;
-            a.click();
-        }
-
-        function importarRespaldo(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    negocios = JSON.parse(e.target.result);
-                    negocioActualId = negocios[0].id;
-                    persistir();
-                    alert('¡Restaurado con éxito!');
-                } catch(err) {
-                    alert('Archivo no válido.');
-                }
-            };
-            reader.readAsText(file);
-        }
-
         function renderizarTodo() {
             actualizarSelectNegocios();
             renderInventario();
@@ -955,4 +972,4 @@
         renderizarTodo();
     </script>
 </body>
-</html>  
+</html>
